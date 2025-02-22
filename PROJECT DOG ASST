@@ -59,7 +59,7 @@ _G.radarEnabled = false
 _G.arrowsEnabled = false
 _G.skeletonEnabled = false
 
--- Function to disable all ESP features
+
 local function DisableAllESP()
     -- Disable Skeleton
     if _G.skeletonEnabled then
@@ -93,8 +93,62 @@ local function DisableAllESP()
         end
         _G.radarEnabled = false
     end
+    
+    -- Disable WAP ESP
+    DisableWAPESP()  -- เพิ่มการปิดการทำงานของ WAP ESP
 end
 
+
+
+-- WAP ESP
+local WAPToggle = ESPTab:CreateToggle({
+    Name = "WAP ESP",
+    CurrentValue = false,
+    Flag = "wapToggle",
+    Callback = function(Value)
+        if Value then
+            DisableAllESP()  -- ปิด ESP อื่น ๆ ก่อน
+            _G.wapEnabled = true
+            
+            -- ฟังก์ชันในการแสดงของที่ถืออยู่
+            local function showHeldItems(player)
+                -- ตรวจสอบว่าผู้เล่นมีของในมือหรือไม่
+                local character = player.Character
+                if character and character:FindFirstChild("Humanoid") then
+                    local backpack = player.Backpack
+                    local itemNames = {}
+                    
+                    for _, item in ipairs(backpack:GetChildren()) do
+                        if item:IsA("Tool") then
+                            table.insert(itemNames, item.Name)
+                        end
+                    end
+                    
+                    -- ทำการแสดงรายการของใน UI หรือ ESP
+                    -- ใช้ฟังก์ชันที่คุณต้องการที่นี่เพื่อแสดง itemNames
+                end
+            end
+
+            -- สร้าง WAP ESP สำหรับผู้เล่นที่มีอยู่แล้ว
+            for _, plr in next, Players:GetChildren() do
+                if plr ~= Player then
+                    showHeldItems(plr)  -- แสดงของที่ถืออยู่
+                end
+            end
+            
+            -- สร้าง WAP ESP สำหรับผู้เล่นใหม่
+            Players.PlayerAdded:Connect(function(plr)
+                if _G.wapEnabled and plr ~= Player then
+                    showHeldItems(plr)  -- แสดงของที่ถืออยู่
+                end
+            end)
+        else
+            _G.wapEnabled = false
+            -- หากต้องการลบข้อมูลหรือทำความสะอาดสามารถเพิ่มที่นี่
+        end
+    end,
+})
+......................................................................................................................................................................................................................................................................................................................................................................................................................................................
 -- Skeleton ESP
 local SkeletonToggle = ESPTab:CreateToggle({
     Name = "Skeleton ESP",
