@@ -1,3 +1,10 @@
+local Players = game:service("Players")
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
+local Camera = game:service("Workspace").CurrentCamera
+local RS = game:service("RunService")
+local UIS = game:service("UserInputService")
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
@@ -42,36 +49,49 @@ Rayfield:Notify({
    },
 })
 
--- ESPTab
+-- ESP Tab
 local ESPTab = Window:CreateTab("👁 ESP", nil)
 local ESPSection = ESPTab:CreateSection("ESP Features")
 
--- Variables to track ESP states
-_G.skeletonEnabled = false
-_G.arrowsEnabled = false
+-- Global variables for ESP states
+_G.espEnabled = false
 _G.radarEnabled = false
+_G.arrowsEnabled = false
+_G.skeletonEnabled = false
 
--- Function to cleanup ESP features
-local function cleanupESP()
-    if _G.Skeletons then
-        for _, skeleton in pairs(_G.Skeletons) do
-            pcall(function() skeleton:Remove() end)
+-- Function to disable all ESP features
+local function DisableAllESP()
+    -- Disable Skeleton
+    if _G.skeletonEnabled then
+        if _G.Skeletons then
+            for _, skeleton in pairs(_G.Skeletons) do
+                pcall(function() skeleton:Remove() end)
+            end
+            _G.Skeletons = nil
         end
-        _G.Skeletons = nil
+        _G.skeletonEnabled = false
     end
     
-    if _G.ArrowsObjects then
-        for _, arrow in pairs(_G.ArrowsObjects) do
-            pcall(function() arrow:Remove() end)
+    -- Disable Arrows
+    if _G.arrowsEnabled then
+        if _G.ArrowsObjects then
+            for _, arrow in pairs(_G.ArrowsObjects) do
+                pcall(function() arrow:Remove() end)
+            end
+            _G.ArrowsObjects = nil
         end
-        _G.ArrowsObjects = nil
+        _G.arrowsEnabled = false
     end
     
-    if _G.RadarObjects then
-        for _, obj in pairs(_G.RadarObjects) do
-            pcall(function() obj:Remove() end)
+    -- Disable Radar
+    if _G.radarEnabled then
+        if _G.RadarObjects then
+            for _, obj in pairs(_G.RadarObjects) do
+                pcall(function() obj:Remove() end)
+            end
+            _G.RadarObjects = nil
         end
-        _G.RadarObjects = nil
+        _G.radarEnabled = false
     end
 end
 
@@ -81,100 +101,389 @@ local SkeletonToggle = ESPTab:CreateToggle({
     CurrentValue = false,
     Flag = "skeletonToggle",
     Callback = function(Value)
-        cleanupESP()
-        _G.skeletonEnabled = Value
         if Value then
+            DisableAllESP()
+            _G.skeletonEnabled = true
+            
+            -- Load the skeleton library
             local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Blissful4992/ESPs/main/UniversalSkeleton.lua"))()
             _G.Skeletons = {}
             
-            for _, Player in next, game.Players:GetChildren() do
-                if Player ~= game.Players.LocalPlayer then
-                    table.insert(_G.Skeletons, Library:NewSkeleton(Player, true))
+            -- Create skeletons for existing players
+            for _, plr in next, Players:GetChildren() do
+                if plr ~= Player then
+                    table.insert(_G.Skeletons, Library:NewSkeleton(plr, true))
                 end
             end
             
-            game.Players.PlayerAdded:Connect(function(Player)
-                if _G.skeletonEnabled and Player ~= game.Players.LocalPlayer then
-                    table.insert(_G.Skeletons, Library:NewSkeleton(Player, true))
+            -- Create skeletons for new players
+            Players.PlayerAdded:Connect(function(plr)
+                if _G.skeletonEnabled and plr ~= Player then
+                    table.insert(_G.Skeletons, Library:NewSkeleton(plr, true))
                 end
             end)
+        else
+            _G.skeletonEnabled = false
+            if _G.Skeletons then
+                for _, skeleton in pairs(_G.Skeletons) do
+                    pcall(function() skeleton:Remove() end)
+                end
+                _G.Skeletons = nil
+            end
         end
     end,
 })
 
 -- Arrows ESP
 local ArrowsToggle = ESPTab:CreateToggle({
-    Name = "Arrows",
+    Name = "Arrows ESP",
     CurrentValue = false,
     Flag = "arrowsToggle",
     Callback = function(Value)
-        cleanupESP()
-        _G.arrowsEnabled = Value
         if Value then
+            DisableAllESP()
+            _G.arrowsEnabled = true
             _G.ArrowsObjects = {}
             
-            -- Arrows configuration
+            -- Arrows Configuration
             local DistFromCenter = 80
             local TriangleHeight = 16
             local TriangleWidth = 16
-            
-            local function ShowArrow(player)
-                if player == game.Players.LocalPlayer then return end
+            local TriangleFilled = true
+            local TriangleTransparency = 0
+            local TriangleThickness = 1
+            local TriangleColor = Color3.fromRGB(255, 255, 255)
+            local AntiAliasing = false
+
+            -- Arrow Functions
+            local function GetRelative(pos, char)
+                if not char then return Vector2.new(0,0) end
+                local rootP = char.PrimaryPart.Position
+                local camP = Camera.CFrame.Position
+                local relative = CFrame.new(Vector3.new(rootP.X, camP.Y, rootP.Z), camP):PointToObjectSpace(pos)
+                return Vector2.new(relative.X, relative.Z)
+            end
+
+            local function RelativeToCenter(v)
+                return Camera.ViewportSize/2 - v
+            end
+
+            local function RotateVect(v, a)
+                a = math.rad(a)
+                local x = v.x * math.cos(a) - v.y * math.sin(a)
+                local y = v.x * math.sin(a) + v.y * math.cos(a)
+                return Vector2.new(x, y)
+            end
+
+            local function DrawTriangle(color)
+                local l = Drawing.new("Triangle")
+                l.Visible = false
+                l.Color = color
+                l.Filled = TriangleFilled
+                l.Thickness = TriangleThickness
+                l.Transparency = 1-TriangleTransparency
+                return l
+            end
+
+            local function AntiA(v)
+                if (not AntiAliasing) then return v end
+                return Vector2.new(math.round(v.x), math.round(v.y))
+            end
+
+            local function ShowArrow(PLAYER)
+                local Arrow = DrawTriangle(TriangleColor)
+                table.insert(_G.ArrowsObjects, Arrow)
                 
-                local arrow = Drawing.new("Triangle")
-                arrow.Visible = false
-                arrow.Color = Color3.fromRGB(255, 255, 255)
-                arrow.Filled = true
-                arrow.Thickness = 1
-                arrow.Transparency = 1
-                table.insert(_G.ArrowsObjects, arrow)
-                
-                game:GetService("RunService").RenderStepped:Connect(function()
-                    if not _G.arrowsEnabled then
-                        arrow.Visible = false
-                        return
-                    end
-                    
-                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                        local pos, vis = workspace.CurrentCamera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
-                        if not vis then
-                            -- Arrow pointing logic here
-                            arrow.Visible = true
-                        else
-                            arrow.Visible = false
+                local function Update()
+                    local c
+                    c = RS.RenderStepped:Connect(function()
+                        if not _G.arrowsEnabled then
+                            Arrow.Visible = false
+                            c:Disconnect()
+                            return
                         end
-                    else
-                        arrow.Visible = false
-                    end
-                end)
+                        
+                        if PLAYER and PLAYER.Character then
+                            local CHAR = PLAYER.Character
+                            local HUM = CHAR:FindFirstChildOfClass("Humanoid")
+                            if HUM and CHAR.PrimaryPart ~= nil and HUM.Health > 0 then
+                                local _,vis = Camera:WorldToViewportPoint(CHAR.PrimaryPart.Position)
+                                if vis == false then
+                                    local rel = GetRelative(CHAR.PrimaryPart.Position, Player.Character)
+                                    local direction = rel.Unit
+                                    local base = direction * DistFromCenter
+                                    local sideLength = TriangleWidth/2
+                                    local baseL = base + RotateVect(direction, 90) * sideLength
+                                    local baseR = base + RotateVect(direction, -90) * sideLength
+                                    local tip = direction * (DistFromCenter + TriangleHeight)
+                                    
+                                    Arrow.PointA = AntiA(RelativeToCenter(baseL))
+                                    Arrow.PointB = AntiA(RelativeToCenter(baseR))
+                                    Arrow.PointC = AntiA(RelativeToCenter(tip))
+                                    Arrow.Visible = true
+                                else 
+                                    Arrow.Visible = false 
+                                end
+                            else 
+                                Arrow.Visible = false 
+                            end
+                        else 
+                            Arrow.Visible = false
+                            if not PLAYER or not PLAYER.Parent then
+                                Arrow:Remove()
+                                c:Disconnect()
+                            end
+                        end
+                    end)
+                end
+                coroutine.wrap(Update)()
             end
-            
-            for _, player in pairs(game.Players:GetPlayers()) do
-                ShowArrow(player)
+
+            -- Create arrows for existing players
+            for _,v in pairs(Players:GetChildren()) do
+                if v.Name ~= Player.Name then
+                    ShowArrow(v)
+                end
             end
-            
-            game.Players.PlayerAdded:Connect(function(player)
-                if _G.arrowsEnabled then
-                    ShowArrow(player)
+
+            -- Create arrows for new players
+            Players.PlayerAdded:Connect(function(v)
+                if _G.arrowsEnabled and v.Name ~= Player.Name then
+                    ShowArrow(v)
                 end
             end)
+        else
+            _G.arrowsEnabled = false
+            if _G.ArrowsObjects then
+                for _, arrow in pairs(_G.ArrowsObjects) do
+                    pcall(function() arrow:Remove() end)
+                end
+                _G.ArrowsObjects = nil
+            end
         end
     end,
 })
 
 -- Radar ESP
 local RadarToggle = ESPTab:CreateToggle({
-    Name = "Radar",
+    Name = "Radar ESP",
     CurrentValue = false,
     Flag = "radarToggle",
     Callback = function(Value)
-        cleanupESP()
-        _G.radarEnabled = Value
         if Value then
+            DisableAllESP()
+            _G.radarEnabled = true
+            
+            -- Load LerpColorModule for health colors
+            local LerpColorModule = loadstring(game:HttpGet("https://pastebin.com/raw/wRnsJeid"))()
+            local HealthBarLerp = LerpColorModule:Lerp(Color3.fromRGB(255, 0, 0), Color3.fromRGB(0, 255, 0))
+            
+            -- Radar Configuration
+            local RadarInfo = {
+                Position = Vector2.new(200, 200),
+                Radius = 100,
+                Scale = 1,
+                RadarBack = Color3.fromRGB(10, 10, 10),
+                RadarBorder = Color3.fromRGB(75, 75, 75),
+                LocalPlayerDot = Color3.fromRGB(255, 255, 255),
+                PlayerDot = Color3.fromRGB(60, 170, 255),
+                Team = Color3.fromRGB(0, 255, 0),
+                Enemy = Color3.fromRGB(255, 0, 0),
+                Health_Color = true,
+                Team_Check = true
+            }
+            
             _G.RadarObjects = {}
-            -- Radar code here
-            loadstring(game:HttpGet("https://pastebin.com/raw/wRnsJeid"))()
-            -- Add radar objects to _G.RadarObjects table
+
+            local function NewCircle(Transparency, Color, Radius, Filled, Thickness)
+                local c = Drawing.new("Circle")
+                c.Transparency = Transparency
+                c.Color = Color
+                c.Visible = false
+                c.Thickness = Thickness
+                c.Position = Vector2.new(0, 0)
+                c.Radius = Radius
+                c.NumSides = math.clamp(Radius*55/100, 10, 75)
+                c.Filled = Filled
+                table.insert(_G.RadarObjects, c)
+                return c
+            end
+
+            local RadarBackground = NewCircle(0.9, RadarInfo.RadarBack, RadarInfo.Radius, true, 1)
+            RadarBackground.Visible = true
+            RadarBackground.Position = RadarInfo.Position
+
+            local RadarBorder = NewCircle(0.75, RadarInfo.RadarBorder, RadarInfo.Radius, false, 3)
+            RadarBorder.Visible = true
+            RadarBorder.Position = RadarInfo.Position
+
+            local function GetRelative(pos)
+                local char = Player.Character
+                if char ~= nil and char.PrimaryPart ~= nil then
+                    local pmpart = char.PrimaryPart
+                    local camerapos = Vector3.new(Camera.CFrame.Position.X, pmpart.Position.Y, Camera.CFrame.Position.Z)
+                    local newcf = CFrame.new(pmpart.Position, camerapos)
+                    local r = newcf:PointToObjectSpace(pos)
+                    return r.X, r.Z
+                else
+                    return 0, 0
+                end
+            end
+
+            local function PlaceDot(plr)
+                local PlayerDot = NewCircle(1, RadarInfo.PlayerDot, 3, true, 1)
+                local function Update()
+                    local c 
+                    c = RS.RenderStepped:Connect(function()
+                        if not _G.radarEnabled then
+                            PlayerDot.Visible = false
+                            c:Disconnect()
+                            return
+                        end
+
+                        local char = plr.Character
+                        if char and char:FindFirstChildOfClass("Humanoid") and char.PrimaryPart ~= nil and char:FindFirstChildOfClass("Humanoid").Health > 0 then
+                            local hum = char:FindFirstChildOfClass("Humanoid")
+                            local scale = RadarInfo.Scale
+                            local relx, rely = GetRelative(char.PrimaryPart.Position)
+                            local newpos = RadarInfo.Position - Vector2.new(relx * scale, rely * scale) 
+                            
+                            if (newpos - RadarInfo.Position).magnitude < RadarInfo.Radius-2 then 
+                                PlayerDot.Radius = 3   
+                                PlayerDot.Position = newpos
+                                PlayerDot.Visible = true
+                            else 
+                                local dist = (RadarInfo.Position - newpos).magnitude
+                                local calc = (RadarInfo.Position - newpos).unit * (dist - RadarInfo.Radius)
+                                local inside = Vector2.new(newpos.X + calc.X, newpos.Y + calc.Y)
+                                PlayerDot.Radius = 2
+                                PlayerDot.Position = inside
+                                PlayerDot.Visible = true
+                            end
+
+                            PlayerDot.Color = RadarInfo.PlayerDot
+                            if RadarInfo.Team_Check then
+                                if plr.TeamColor == Player.TeamColor then
+                                    PlayerDot.Color = RadarInfo.Team
+                                else
+                                    PlayerDot.Color = RadarInfo.Enemy
+                                end
+                            end
+
+                            if RadarInfo.Health_Color then
+                                PlayerDot.Color = HealthBarLerp(hum.Health / hum.MaxHealth)
+                            end
+                        else 
+                            PlayerDot.Visible = false
+                            if Players:FindFirstChild(plr.Name) == nil then
+                                PlayerDot:Remove()
+                                c:Disconnect()
+                            end
+                        end
+                    end)
+                end
+                coroutine.wrap(Update)()
+            end
+
+            for _,v in pairs(Players:GetChildren()) do
+                if v.Name ~= Player.Name then
+                    PlaceDot(v)
+                end
+            end
+
+            local function NewLocalDot()
+                local d = Drawing.new("Triangle")
+                d.Visible = true
+                d.Thickness = 1
+                d.Filled = true
+                d.Color = RadarInfo.LocalPlayerDot
+                d.PointA = RadarInfo.Position + Vector2.new(0, -6)
+                d.PointB = RadarInfo.Position + Vector2.new(-3, 6)
+                d.PointC = RadarInfo.Position + Vector2.new(3, 6)
+                table.insert(_G.RadarObjects, d)
+                return d
+            end
+
+            local LocalPlayerDot = NewLocalDot()
+
+            Players.PlayerAdded:Connect(function(v)
+                if _G.radarEnabled and v.Name ~= Player.Name then
+                    PlaceDot(v)
+                end
+            end)
+
+            -- Radar Update Loop
+            coroutine.wrap(function()
+                local c 
+                c = RS.RenderStepped:Connect(function()
+                    if not _G.radarEnabled then
+                        c:Disconnect()
+                        return
+                    end
+                    
+                    if LocalPlayerDot ~= nil then
+                        LocalPlayerDot.Color = RadarInfo.LocalPlayerDot
+                        LocalPlayerDot.PointA = RadarInfo.Position + Vector2.new(0, -6)
+                        LocalPlayerDot.PointB = RadarInfo.Position + Vector2.new(-3, 6)
+                        LocalPlayerDot.PointC = RadarInfo.Position + Vector2.new(3, 6)
+                    end
+                    RadarBackground.Position = RadarInfo.Position
+                    RadarBackground.Radius = RadarInfo.Radius
+                    RadarBackground.Color = RadarInfo.RadarBack
+
+                    RadarBorder.Position = RadarInfo.Position
+                    RadarBorder.Radius = RadarInfo.Radius
+                    RadarBorder.Color = RadarInfo.RadarBorder
+                end)
+            end)()
+
+            -- Draggable Functionality
+            local inset = game:service("GuiService"):GetGuiInset()
+            local dragging = false
+            local offset = Vector2.new(0, 0)
+            
+            UIS.InputBegan:Connect(function(input)
+                if not _G.radarEnabled then return end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and (Vector2.new(Mouse.X, Mouse.Y + inset.Y) - RadarInfo.Position).magnitude < RadarInfo.Radius then
+                    offset = RadarInfo.Position - Vector2.new(Mouse.X, Mouse.Y)
+                    dragging = true
+                end
+            end)
+
+            UIS.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = false
+                end
+            end)
+
+            coroutine.wrap(function()
+                local dot = NewCircle(1, Color3.fromRGB(255, 255, 255), 3, true, 1)
+                local c 
+                c = RS.RenderStepped:Connect(function()
+                    if not _G.radarEnabled then
+                        c:Disconnect()
+                        return
+                    end
+                    
+                    if (Vector2.new(Mouse.X, Mouse.Y + inset.Y) - RadarInfo.Position).magnitude < RadarInfo.Radius then
+                        dot.Position = Vector2.new(Mouse.X, Mouse.Y + inset.Y)
+                        dot.Visible = true
+                    else 
+                        dot.Visible = false
+                    end
+                    if dragging then
+                        RadarInfo.Position = Vector2.new(Mouse.X, Mouse.Y) + offset
+                    end
+                end)
+            end)()
+        else
+            _G.radarEnabled = false
+            if _G.RadarObjects then
+                for _, obj in pairs(_G.RadarObjects) do
+                    pcall(function() obj:Remove() end)
+                end
+                _G.RadarObjects = nil
+            end
         end
     end,
 })
@@ -190,6 +499,57 @@ local AutoLoot = MiscTab:CreateToggle({
     Flag = "autoLootToggle",
     Callback = function(Value)
         _G.autoLootEnabled = Value
+        if Value then
+            local Events = game:GetService("ReplicatedStorage"):WaitForChild("Events")
+            local Loot = Events:WaitForChild("Loot")
+            local LootEvent = Loot:WaitForChild("LootObject")
+            
+            -- Loot Functions
+            local function hasRemainingLoot(lootTable)
+                if not lootTable then return false end
+                if (lootTable:GetAttribute("Cash") or 0) > 0 then return true end
+                if (lootTable:GetAttribute("Valuables") or 0) > 0 then return true end
+                for _, item in pairs(lootTable:GetChildren()) do
+                    if item:IsA("NumberValue") and item.Value > 0 then
+                        return true
+                    end
+                end
+                return false
+            end
+
+            local function lootEverything(lootTable)
+                if not lootTable or _G.currentlyLooting then return end
+                _G.currentlyLooting = true
+                
+                while hasRemainingLoot(lootTable) and _G.autoLootEnabled do
+                    if (lootTable:GetAttribute("Cash") or 0) > 0 then
+                        LootEvent:FireServer(lootTable, "Cash")
+                        task.wait(0.1)
+                    end
+                    
+                    if (lootTable:GetAttribute("Valuables") or 0) > 0 then
+                        LootEvent:FireServer(lootTable, "Valuables")
+                        task.wait(0.1)
+                    end
+                    
+                    for _, item in pairs(lootTable:GetChildren()) do
+                        if item:IsA("NumberValue") and item.Value > 0 then
+                            LootEvent:FireServer(lootTable, item)
+                            task.wait(0.1)
+                        end
+                    end
+                    task.wait(0.2)
+                end
+                _G.currentlyLooting = false
+            end
+
+            LootEvent.OnClientEvent:Connect(function(lootTable)
+                if _G.autoLootEnabled and lootTable then
+                    task.wait(0.1)
+                    lootEverything(lootTable)
+                end
+            end)
+        end
     end,
 })
 
@@ -200,6 +560,15 @@ local AutoMinigame = MiscTab:CreateToggle({
     Flag = "autoMinigameToggle",
     Callback = function(Value)
         _G.autoMinigameEnabled = Value
+        if Value then
+            local Events = game:GetService("ReplicatedStorage"):WaitForChild("Events")
+            Events.Loot.Minigame.OnClientEvent:Connect(function(instance)
+                if _G.autoMinigameEnabled then
+                    task.wait(math.random(0.1, 0.3))
+                    Events.Loot.MinigameResult:FireServer(instance, true)
+                end
+            end)
+        end
     end,
 })
 
@@ -210,6 +579,22 @@ local NoFall = MiscTab:CreateToggle({
     Flag = "noFallToggle",
     Callback = function(Value)
         _G.noFallEnabled = Value
+        if Value then
+            local mt = getrawmetatable(game)
+            setreadonly(mt, false)
+            local old = mt.__namecall
+            
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                local args = {...}
+                
+                if _G.noFallEnabled and method == "FireServer" and (self.Name == "Damage" or self.Name == "Ragdoll") then
+                    return
+                end
+                
+                return old(self, ...)
+            end)
+        end
     end,
 })
 
@@ -220,6 +605,33 @@ local FastJump = MiscTab:CreateToggle({
     Flag = "fastJumpToggle",
     Callback = function(Value)
         _G.fastJumpEnabled = Value
+        _G.canJump = true
+        _G.lastJumpTime = 0
+        
+        if Value then
+            game:GetService("UserInputService").JumpRequest:Connect(function()
+                if _G.fastJumpEnabled then
+                    local character = game.Players.LocalPlayer.Character
+                    if not character then return end
+                    
+                    local humanoid = character:FindFirstChild("Humanoid")
+                    if not humanoid then return end
+                    
+                    if humanoid.FloorMaterial ~= Enum.Material.Air and _G.canJump then
+                        local currentTime = tick()
+                        if currentTime - _G.lastJumpTime > 0.1 then
+                            _G.lastJumpTime = currentTime
+                            _G.canJump = false
+                            
+                            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                            
+                            task.wait(0.1)
+                            _G.canJump = true
+                        end
+                    end
+                end
+            end)
+        end
     end,
 })
 
@@ -230,6 +642,24 @@ local AntiRagdoll = MiscTab:CreateToggle({
     Flag = "antiRagdollToggle",
     Callback = function(Value)
         _G.antiRagdollEnabled = Value
+        if Value then
+            _G.Ragdolled = false
+            
+            local mt = getrawmetatable(game)
+            setreadonly(mt, false)
+            local old = mt.__namecall
+            
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                local args = {...}
+                
+                if _G.antiRagdollEnabled and method == "FireServer" and self.Name == "Ragdoll" then
+                    return
+                end
+                
+                return old(self, ...)
+            end)
+        end
     end,
 })
 
@@ -240,7 +670,7 @@ local SettingsSection = SettingsTab:CreateSection("Script Settings")
 local DestroyUI = SettingsTab:CreateButton({
    Name = "Destroy UI",
    Callback = function()
-      cleanupESP()
+      DisableAllESP()
       Rayfield:Destroy()
    end,
 })
