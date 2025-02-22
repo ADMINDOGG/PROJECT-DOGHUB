@@ -53,6 +53,16 @@ Rayfield:Notify({
 local ESPTab = Window:CreateTab("👁 ESP", nil)
 local ESPSection = ESPTab:CreateSection("ESP Features")
 
+-- ESP Controls
+local ESPControls = ESPTab:CreateSection("ESP Control Buttons")
+
+local WeaponESPBtn = ESPTab:CreateButton({
+    Name = "Weapon ESP",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/ADMINDOGG/Dog-hub/refs/heads/main/ESP%20WAP"))()
+    end,
+})
+
 -- Global variables for ESP states
 _G.espEnabled = false
 _G.radarEnabled = false
