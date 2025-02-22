@@ -56,10 +56,73 @@ local ESPSection = ESPTab:CreateSection("ESP Features")
 -- ESP Controls
 local ESPControls = ESPTab:CreateSection("ESP Control Buttons")
 
-local WeaponESPBtn = ESPTab:CreateButton({
+-- Global variables for Weapon ESP
+_G.weaponESPEnabled = false
+_G.maxDistance = 100
+_G.labelWidth = 200
+_G.labelHeight = 50
+_G.textSize = 14
+_G.offsetY = 3
+_G.textColor = Color3.fromRGB(255, 0, 0)
+_G.rainbowMode = false
+
+-- Weapon ESP Toggle
+local WeaponESPToggle = ESPTab:CreateToggle({
     Name = "Weapon ESP",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/ADMINDOGG/Dog-hub/refs/heads/main/ESP%20WAP"))()
+    CurrentValue = false,
+    Flag = "weaponESPToggle",
+    Callback = function(Value)
+        _G.weaponESPEnabled = Value
+        -- โหลดและเริ่มระบบ ESP
+        if Value then
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ADMINDOGG/Dog-hub/refs/heads/main/ESP%20WAP"))()
+        end
+    end,
+})
+
+-- Distance Slider
+local DistanceSlider = ESPTab:CreateSlider({
+    Name = "ESP Distance",
+    Range = {0, 1000},
+    Increment = 10,
+    Suffix = "studs",
+    CurrentValue = 100,
+    Flag = "distanceSlider",
+    Callback = function(Value)
+        _G.maxDistance = Value
+    end,
+})
+
+-- Text Size Slider
+local TextSizeSlider = ESPTab:CreateSlider({
+    Name = "Text Size",
+    Range = {8, 48},
+    Increment = 1,
+    CurrentValue = 14,
+    Flag = "textSizeSlider",
+    Callback = function(Value)
+        _G.textSize = Value
+    end,
+})
+
+-- ESP Color Picker
+local ColorPicker = ESPTab:CreateColorPicker({
+    Name = "ESP Color",
+    Color = Color3.fromRGB(255, 0, 0),
+    Flag = "espColorPicker",
+    Callback = function(Value)
+        _G.textColor = Value
+        _G.rainbowMode = false
+    end,
+})
+
+-- Rainbow Mode Toggle
+local RainbowToggle = ESPTab:CreateToggle({
+    Name = "Rainbow Mode",
+    CurrentValue = false,
+    Flag = "rainbowToggle",
+    Callback = function(Value)
+        _G.rainbowMode = Value
     end,
 })
 
