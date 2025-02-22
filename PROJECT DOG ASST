@@ -49,15 +49,326 @@ Rayfield:Notify({
    },
 })
 
+
+-- Combat Tab
+local CombatTab = Window:CreateTab("⚔️ Combat", nil)
+local AimbotSection = CombatTab:CreateSection("Aimbot Settings")
+
+-- ตัวแปรสำหรับ Aimbot
+local aimbotEnabled = false
+local wallCheckEnabled = false
+local targetBody = false
+local FOVSize = 100
+local smoothness = 0.2
+local predictionMultiplier = 0.15
+
+-- สร้าง FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 2
+FOVCircle.NumSides = 64
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Transparency = 0.7
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+
+-- ฟังก์ชันหาผู้เล่นที่ใกล้เม้าส์ที่สุด
+local function getClosestToCenter()
+    local closestPlayer = nil
+    local shortestDistance = FOVSize
+    local mousePos = UIS:GetMouseLocation()
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Player then
+            local character = player.Character
+            if character and character:FindFirstChild("Humanoid") and
+               character.Humanoid.Health > 0 then
+                
+                local targetPart = targetBody and 
+                    character:FindFirstChild("HumanoidRootPart") or
+                    character:FindFirstChild("Head")
+                
+                if targetPart then
+                    local screenPoint, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+                    
+                    if onScreen and screenPoint.Z > 0 then
+                        local screenPosition = Vector2.new(screenPoint.X, screenPoint.Y)
+                        local distanceFromMouse = (screenPosition - mousePos).Magnitude
+                        
+                        if distanceFromMouse <= FOVSize then
+                            if distanceFromMouse < shortestDistance then
+                                if not wallCheckEnabled or canSeeTarget(targetPart) then
+                                    closestPlayer = player
+                                    shortestDistance = distanceFromMouse
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- Toggle Aimbot Button
+local AimbotToggle = CombatTab:CreateToggle({
+    Name = "Enable Aimbot",
+    CurrentValue = false,
+    Flag = "AimbotEnabled",
+    Callback = function(Value)
+        aimbotEnabled = Value
+        FOVCircle.Visible = Value
+    end
+})
+
+-- Wall Check Toggle
+local WallCheckToggle = CombatTab:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = false,
+    Flag = "WallCheck",
+    Callback = function(Value)
+        wallCheckEnabled = Value
+    end
+})
+
+-- Target Part Toggle
+local TargetPartToggle = CombatTab:CreateToggle({
+    Name = "Target Body",
+    CurrentValue = false,
+    Flag = "TargetBody",
+    Callback = function(Value)
+        targetBody = Value
+    end
+})
+
+-- FOV Size Slider
+local FOVSlider = CombatTab:CreateSlider({
+    Name = "FOV Size",
+    Range = {10, 800},
+    Increment = 10,
+    Suffix = "px",
+    CurrentValue = 100,
+    Flag = "FOVSize",
+    Callback = function(Value)
+        FOVSize = Value
+        FOVCircle.Radius = Value
+    end
+})
+
+-- Smoothness Slider
+local SmoothnessSlider = CombatTab:CreateSlider({
+    Name = "Smoothness",
+    Range = {0.01, 1},
+    Increment = 0.01,
+    Suffix = "x",
+    CurrentValue = 0.2,
+    Flag = "Smoothness",
+    Callback = function(Value)
+        smoothness = Value
+    end
+})
+
+-- Prediction Slider
+local PredictionSlider = CombatTab:CreateSlider({
+    Name = "Prediction",
+    Range = {0, 2},
+    Increment = 0.01,
+    Suffix = "x",
+    CurrentValue = 0.15,
+    Flag = "Prediction",
+    Callback = function(Value)
+        predictionMultiplier = Value
+    end
+})
+
+-- Main Aimbot Loop
+RS.RenderStepped:Connect(function()
+    if FOVCircle then
+        FOVCircle.Position = UIS:GetMouseLocation()
+        FOVCircle.Radius = FOVSize
+    end
+    
+    if aimbotEnabled and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = getClosestToCenter()
+        if target then
+            local targetPart = targetBody and 
+                target.Character:FindFirstChild("HumanoidRootPart") or
+                target.Character:FindFirstChild("Head")
+            
+            if targetPart then
+                local targetPos = targetPart.Position
+                local targetVel = targetPart.Velocity
+                
+                -- คำนวณการ Prediction
+                targetPos = targetPos + (targetVel * predictionMultiplier)
+                
+                -- ล็อกเป้าหมาย
+                local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, targetPos)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, smoothness)
+            end
+        end
+    end
+end)
+
 -- ESP Tab
 local ESPTab = Window:CreateTab("👁 ESP", nil)
 local ESPSection = ESPTab:CreateSection("ESP Features")
+
+-- ESP Variables and Colors
+local espEnabled = false
+local espDistance = 1000
+local espTextSize = 12
+local highlightColor = Color3.fromRGB(255, 255, 255)
+local fillColor = Color3.fromRGB(255, 0, 0)
+
+-- Create ESP Storage
+local espFolder = Instance.new("Folder")
+espFolder.Name = "ESPStorage"
+espFolder.Parent = game.CoreGui
+
+-- ESP Functions
+local function createNameTag(player)
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP_Name"
+    billboard.Size = UDim2.new(0, 150, 0, 60)
+    billboard.StudsOffset = Vector3.new(0, 2, 0)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = espDistance
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.TextColor3 = Color3.new(1, 1, 1)
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    nameLabel.TextSize = espTextSize
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Parent = billboard
+
+    local hpLabel = Instance.new("TextLabel")
+    hpLabel.Name = "HPLabel"
+    hpLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    hpLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    hpLabel.BackgroundTransparency = 1
+    hpLabel.TextColor3 = Color3.new(1, 1, 1)
+    hpLabel.TextStrokeTransparency = 0
+    hpLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    hpLabel.TextSize = espTextSize
+    hpLabel.Font = Enum.Font.GothamBold
+    hpLabel.Parent = billboard
+
+    local function updateHP()
+        local character = player.Character
+        if character then
+            local humanoid = character:FindFirstChild("Humanoid")
+            if humanoid then
+                local hp = math.floor((humanoid.Health / humanoid.MaxHealth) * 100)
+                hpLabel.Text = hp .. "%"
+                
+                if hp > 75 then
+                    hpLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+                elseif hp > 50 then
+                    hpLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+                elseif hp > 25 then
+                    hpLabel.TextColor3 = Color3.fromRGB(255, 125, 0)
+                else
+                    hpLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+                end
+            end
+        end
+    end
+
+    if player.Character then
+        local humanoid = player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            updateHP()
+            humanoid.HealthChanged:Connect(updateHP)
+        end
+    end
+
+    return billboard
+end
+
+local function createChams(character)
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillColor = fillColor
+    highlight.OutlineColor = highlightColor
+    highlight.FillTransparency = 0.8
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = espFolder
+    highlight.Adornee = character
+
+    local player = game:GetService("Players"):GetPlayerFromCharacter(character)
+    if player then
+        local nameTag = createNameTag(player)
+        nameTag.Parent = character:WaitForChild("Head")
+    end
+end
+
+local function updateESP()
+    if espEnabled then
+        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+            if player ~= game:GetService("Players").LocalPlayer then
+                if player.Character and player.Character:FindFirstChild("Humanoid") then
+                    local hasESP = false
+                    if player.Character:FindFirstChild("Head") then
+                        hasESP = player.Character.Head:FindFirstChild("ESP_Name") ~= nil
+                    end
+                    
+                    if not hasESP then
+                        createChams(player.Character)
+                    end
+                end
+            end
+        end
+    end
+end
+
+
+local ESPToggle = ESPTab:CreateToggle({
+    Name = "Player ESP",
+    CurrentValue = false,
+    Flag = "PlayerESPToggle",
+    Callback = function(Value)
+        espEnabled = Value
+        if Value then
+            updateESP()
+            game:GetService("RunService").RenderStepped:Connect(function()
+                if espEnabled then
+                    updateESP()
+                end
+            end)
+        else
+            for _, highlight in pairs(espFolder:GetChildren()) do
+                highlight:Destroy()
+            end
+            
+            for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+                if player ~= game:GetService("Players").LocalPlayer and player.Character then
+                    local head = player.Character:FindFirstChild("Head")
+                    if head then
+                        local nameTag = head:FindFirstChild("ESP_Name")
+                        if nameTag then
+                            nameTag:Destroy()
+                        end
+                    end
+                end
+            end
+        end
+    end,
+})
+
 
 -- Global variables for ESP states
 _G.espEnabled = false
 _G.radarEnabled = false
 _G.arrowsEnabled = false
 _G.skeletonEnabled = false
+
 
 -- Function to cleanup specific ESP feature
 local function CleanupESP(espType)
@@ -84,6 +395,7 @@ local function CleanupESP(espType)
         end
     end
 end
+
 
 -- Skeleton ESP
 local SkeletonToggle = ESPTab:CreateToggle({
@@ -125,6 +437,7 @@ local SkeletonToggle = ESPTab:CreateToggle({
         end
     end,
 })
+
 
 -- Arrows ESP
 local ArrowsToggle = ESPTab:CreateToggle({
@@ -488,6 +801,115 @@ local RadarToggle = ESPTab:CreateToggle({
 local MiscTab = Window:CreateTab("🛠 Misc", nil)
 local MiscSection = MiscTab:CreateSection("Misc Features")
 
+-- Create variables to track script state
+getgenv().ScriptLoaded = false
+getgenv().ESPEnabled = false
+getgenv().ESPLoop = false  -- ตัวแปรควบคุมการทำงานแบบวนซ้ำ
+
+-- Function to force remove ESP
+local function ForceRemoveESP()
+    -- Remove main GUI
+    local playerGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+    if playerGui then
+        local espGui = playerGui:FindFirstChild("WeaponESP")
+        if espGui then
+            espGui:Destroy()
+        end
+    end
+    
+    -- Remove all weapon labels
+    for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+        if player.Character then
+            local head = player.Character:FindFirstChild("Head")
+            if head then
+                local weaponLabel = head:FindFirstChild("WeaponLabel")
+                if weaponLabel then
+                    weaponLabel:Destroy()
+                end
+            end
+        end
+    end
+    
+    -- Clear all variables
+    local varsToCheck = {
+        "weaponLabels",
+        "settings",
+        "uiVisible",
+        "gui",
+        "controlPanel",
+        "ESPEnabled",
+        "ScriptLoaded"
+    }
+    
+    for _, varName in ipairs(varsToCheck) do
+        if _G[varName] then _G[varName] = nil end
+        if getgenv()[varName] then getgenv()[varName] = nil end
+    end
+    
+    -- Disconnect all connections
+    if getgenv().ESPConnections then
+        for _, connection in pairs(getgenv().ESPConnections) do
+            if typeof(connection) == "RBXScriptConnection" and connection.Connected then
+                connection:Disconnect()
+            end
+        end
+        getgenv().ESPConnections = {}
+    end
+end
+
+-- Create DestroyESP function
+getgenv().DestroyESP = function()
+    pcall(function()
+        ForceRemoveESP()
+        -- Try to remove main GUI again after a small delay
+        task.wait(0.1)
+        local playerGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+        if playerGui then
+            for _, gui in pairs(playerGui:GetChildren()) do
+                if gui.Name == "WeaponESP" then
+                    gui:Destroy()
+                end
+            end
+        end
+    end)
+end
+
+-- Create Load Button
+local LoadButton = MiscTab:CreateButton({
+    Name = "Load ESP",
+    Callback = function()
+        -- First, destroy any existing ESP
+        if getgenv().DestroyESP then
+            getgenv().DestroyESP()
+            task.wait(0.2)
+        end
+        
+        local success, error = pcall(function()
+            getgenv().ScriptLoaded = true
+            getgenv().ESPEnabled = true
+            
+            -- Load ESP Script
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ADMINDOGG/Dog-hub/main/ESP%20WAP"))()
+        end)
+        
+        if not success then
+            warn("Load ESP Error: " .. tostring(error))
+            if getgenv().DestroyESP then
+                getgenv().DestroyESP()
+            end
+        end
+    end,
+})
+
+-- Create Stop Button
+local StopButton = MiscTab:CreateButton({
+    Name = "Stop ESP",
+    Callback = function()
+        if getgenv().DestroyESP then
+            getgenv().DestroyESP()
+        end
+    end,
+})
 -- Auto Loot
 local AutoLoot = MiscTab:CreateToggle({
     Name = "Auto Loot",
@@ -548,7 +970,7 @@ local AutoLoot = MiscTab:CreateToggle({
         end
     end,
 })
-
+print("Hello world")
 -- Auto Minigame
 local AutoMinigame = MiscTab:CreateToggle({
     Name = "Auto Minigame",
@@ -659,6 +1081,154 @@ local AntiRagdoll = MiscTab:CreateToggle({
     end,
 })
 
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local plr = Players.LocalPlayer
+
+-- Functions
+local function startSpectating(player)
+    local character = player.Character
+    if character and character:FindFirstChild("Humanoid") then
+        workspace.CurrentCamera.CameraSubject = character
+        return "Spectating " .. character.Name
+    end
+    return "Invalid player"
+end
+
+local function stopSpectating()
+    if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+        workspace.CurrentCamera.CameraSubject = plr.Character
+    end
+end
+
+-- Spectating Button in Rayfield UI
+local AdditionalFunctionsTab = Window:CreateTab("🛠 Additional Functions", nil)
+local AdditionalFunctionsSection = AdditionalFunctionsTab:CreateSection("Additional Features")
+
+-- State variable for toggling GUI
+local isSpectateGuiOpen = false
+
+-- Spectating Button
+local SpectateButton = AdditionalFunctionsTab:CreateButton({
+   Name = "Spectating",
+   Callback = function()
+      if isSpectateGuiOpen then
+          if spectateGui then
+              spectateGui:Destroy()
+              isSpectateGuiOpen = false
+          end
+      else
+          -- UI for selecting players to spectate
+          spectateGui = Instance.new("ScreenGui")
+          spectateGui.Name = "SpectateGui"
+          spectateGui.ResetOnSpawn = false
+          spectateGui.Parent = game.CoreGui
+
+          local mainFrame = Instance.new("Frame")
+          mainFrame.Size = UDim2.new(0, 200, 0, 300)
+          mainFrame.Position = UDim2.new(0.85, -100, 0.3, 0)
+          mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+          mainFrame.BorderSizePixel = 0
+          mainFrame.Active = true
+          mainFrame.Draggable = true
+          mainFrame.Parent = spectateGui
+
+          local titleLabel = Instance.new("TextLabel")
+          titleLabel.Parent = mainFrame
+          titleLabel.Size = UDim2.new(1, 0, 0.15, 0)
+          titleLabel.Text = "👁️ Spectate"
+          titleLabel.TextSize = 24
+          titleLabel.Font = Enum.Font.GothamBold
+          titleLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+          titleLabel.BackgroundTransparency = 1
+
+          local scrollFrame = Instance.new("ScrollingFrame")
+          scrollFrame.Size = UDim2.new(0.9, 0, 0.7, 0)
+          scrollFrame.Position = UDim2.new(0.05, 0, 0.2, 0)
+          scrollFrame.BackgroundTransparency = 1
+          scrollFrame.ScrollBarThickness = 4
+          scrollFrame.Parent = mainFrame
+
+          local stopButton = Instance.new("TextButton")
+          stopButton.Size = UDim2.new(0.8, 0, 0.1, 0)
+          stopButton.Position = UDim2.new(0.1, 0, 0.88, 0)
+          stopButton.Text = "Stop Spectating"
+          stopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+          stopButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+          stopButton.Font = Enum.Font.GothamBold
+          stopButton.TextSize = 14
+          stopButton.Parent = mainFrame
+          stopButton.Visible = false
+
+          stopButton.MouseButton1Click:Connect(function()
+              stopSpectating()
+              stopButton.Visible = false
+          end)
+
+          local function updatePlayerList()
+              for _, child in ipairs(scrollFrame:GetChildren()) do
+                  if child:IsA("TextButton") then
+                      child:Destroy()
+                  end
+              end
+              
+              for _, player in ipairs(Players:GetPlayers()) do
+                  if player ~= plr then
+                      local button = Instance.new("TextButton")
+                      button.Size = UDim2.new(0.9, 0, 0, 30)
+                      button.Position = UDim2.new(0.05, 0, 0, (#scrollFrame:GetChildren() * 35))
+                      button.Text = player.Name
+                      button.TextColor3 = Color3.fromRGB(255, 255, 255)
+                      button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                      button.Font = Enum.Font.GothamSemibold
+                      button.TextSize = 14
+                      button.Parent = scrollFrame
+
+                      button.MouseButton1Click:Connect(function()
+                          startSpectating(player)
+                          stopButton.Visible = true
+                      end)
+                  end
+              end
+          end
+
+          Players.PlayerAdded:Connect(updatePlayerList)
+          Players.PlayerRemoving:Connect(updatePlayerList)
+          updatePlayerList()
+
+          -- Add keyboard shortcut (X key to stop spectating)
+          UserInputService.InputBegan:Connect(function(input, gameProcessed)
+              if not gameProcessed and input.KeyCode == Enum.KeyCode.X then
+                  stopSpectating()
+                  stopButton.Visible = false
+              end
+          end)
+
+          isSpectateGuiOpen = true
+      end
+   end,
+})
+-- Open Chat Button in Rayfield UI
+local TextChatService = game:GetService("TextChatService")
+
+local OpenChatButton = AdditionalFunctionsTab:CreateButton({
+   Name = "Open Chat",
+   Callback = function()
+      local chatWindowConfig = TextChatService:FindFirstChild("ChatWindowConfiguration")
+      local isChatEnabled = true
+
+      if chatWindowConfig then
+          isChatEnabled = not chatWindowConfig.Enabled
+          chatWindowConfig.Enabled = isChatEnabled
+
+          return isChatEnabled and "Chat logs ENABLED!" or "Chat logs DISABLED!"
+      end
+   end,
+})
+
+
+
+
 -- Settings Tab
 local SettingsTab = Window:CreateTab("⚙️ Settings", nil)
 local SettingsSection = SettingsTab:CreateSection("Script Settings")
@@ -676,4 +1246,5 @@ local DestroyUI = SettingsTab:CreateButton({
 -- Credits Section
 local CreditsSection = SettingsTab:CreateSection("Credits")
 local CreditsLabel = SettingsTab:CreateLabel("Created by: DogTeam")
-local VersionLabel = SettingsTab:CreateLabel("Version: 1.0.0")
+local VersionLabel = SettingsTab:CreateLabel("Version: 1.3.1")
+local user = SettingsTab:CreateLabel("Version: 1.0.0")
