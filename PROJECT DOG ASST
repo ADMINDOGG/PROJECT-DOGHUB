@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "🐕 DOG HUB | Universal",
+   Name = "DOG HUB | Universal",
    LoadingTitle = "DOG HUB",
    LoadingSubtitle = "by DogTeam",
    ConfigurationSaving = {
