@@ -51,8 +51,49 @@ Rayfield:Notify({
 
 -- ESP Tab
 local ESPTab = Window:CreateTab("👁 ESP", nil)
-local ESPSection = ESPTab:CreateSection("WAP ESP Settings")
+local ESPSection = ESPTab:CreateSection("ESP Features")
 
+-- Global variables for ESP states
+_G.espEnabled = false
+_G.radarEnabled = false
+_G.arrowsEnabled = false
+_G.skeletonEnabled = false
+
+-- Function to disable all ESP features
+local function DisableAllESP()
+    -- Disable Skeleton
+    if _G.skeletonEnabled then
+        if _G.Skeletons then
+            for _, skeleton in pairs(_G.Skeletons) do
+                pcall(function() skeleton:Remove() end)
+            end
+            _G.Skeletons = nil
+        end
+        _G.skeletonEnabled = false
+    end
+    
+    -- Disable Arrows
+    if _G.arrowsEnabled then
+        if _G.ArrowsObjects then
+            for _, arrow in pairs(_G.ArrowsObjects) do
+                pcall(function() arrow:Remove() end)
+            end
+            _G.ArrowsObjects = nil
+        end
+        _G.arrowsEnabled = false
+    end
+    
+    -- Disable Radar
+    if _G.radarEnabled then
+        if _G.RadarObjects then
+            for _, obj in pairs(_G.RadarObjects) do
+                pcall(function() obj:Remove() end)
+            end
+            _G.RadarObjects = nil
+        end
+        _G.radarEnabled = false
+    end
+end
 
 -- Skeleton ESP
 local SkeletonToggle = ESPTab:CreateToggle({
