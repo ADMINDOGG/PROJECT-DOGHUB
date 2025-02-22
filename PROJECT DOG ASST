@@ -49,37 +49,31 @@ Rayfield:Notify({
    },
 })
 
--- Weapon ESP Toggle
-local WeaponESPEnabled = false
-local weaponLabels = {}
+-- ESP Tab
+local ESPTab = Window:CreateTab("👁 ESP", nil)
+local ESPSection = ESPTab:CreateSection("WAP ESP Settings")
 
-local WeaponESPToggle = ESPTab:CreateToggle({
-    Name = "Weapon ESP",
+-- ตัวแปร Global สำหรับควบคุม WAP ESP
+_G.espSettings = {
+    enabled = false,
+    maxDistance = 100,
+    labelWidth = 200,
+    labelHeight = 50,
+    textSize = 14,
+    offsetY = 3,
+    textColor = Color3.fromRGB(255, 0, 0),
+    rainbow = false
+}
+
+-- WAP ESP Toggle
+local WAPESPToggle = ESPTab:CreateToggle({
+    Name = "WAP ESP",
     CurrentValue = false,
-    Flag = "weaponESPToggle",
+    Flag = "wapESPToggle",
     Callback = function(Value)
-        WeaponESPEnabled = Value
-        if WeaponESPEnabled then
-            -- เริ่มแสดง ESP
-            for _, player in pairs(game:GetService("Players"):GetPlayers()) do
-                if player ~= game:GetService("Players").LocalPlayer then
-                    createWeaponLabel(player)
-                end
-            end
-        else
-            -- ลบ ESP ทั้งหมด
-            for _, label in pairs(weaponLabels) do
-                if label.gui then
-                    label.gui:Destroy()
-                end
-            end
-            weaponLabels = {}
-        end
+        _G.espSettings.enabled = Value
     end,
 })
-
--- ESP Settings
-local ESPSettingsSection = ESPTab:CreateSection("ESP Settings")
 
 -- Distance Slider
 local DistanceSlider = ESPTab:CreateSlider({
@@ -90,15 +84,23 @@ local DistanceSlider = ESPTab:CreateSlider({
     CurrentValue = 100,
     Flag = "distanceSlider",
     Callback = function(Value)
-        for _, label in pairs(weaponLabels) do
-            if label.gui then
-                label.gui.MaxDistance = Value
-            end
-        end
+        _G.espSettings.maxDistance = Value
     end,
 })
 
--- Text Size Slider
+-- Label Size
+local WidthSlider = ESPTab:CreateSlider({
+    Name = "Label Width",
+    Range = {50, 400},
+    Increment = 10,
+    CurrentValue = 200,
+    Flag = "widthSlider",
+    Callback = function(Value)
+        _G.espSettings.labelWidth = Value
+    end,
+})
+
+-- Text Size
 local TextSizeSlider = ESPTab:CreateSlider({
     Name = "Text Size",
     Range = {8, 48},
@@ -106,15 +108,11 @@ local TextSizeSlider = ESPTab:CreateSlider({
     CurrentValue = 14,
     Flag = "textSizeSlider",
     Callback = function(Value)
-        for _, label in pairs(weaponLabels) do
-            if label.label then
-                label.label.TextSize = Value
-            end
-        end
+        _G.espSettings.textSize = Value
     end,
 })
 
--- Y Offset Slider
+-- Y Offset
 local OffsetSlider = ESPTab:CreateSlider({
     Name = "Y Offset",
     Range = {-10, 20},
@@ -122,118 +120,33 @@ local OffsetSlider = ESPTab:CreateSlider({
     CurrentValue = 3,
     Flag = "offsetSlider",
     Callback = function(Value)
-        for _, label in pairs(weaponLabels) do
-            if label.gui then
-                label.gui.StudsOffset = Vector3.new(0, Value, 0)
-            end
-        end
+        _G.espSettings.offsetY = Value
     end,
 })
 
--- ESP Color Picker
+-- ESP Color
 local ColorPicker = ESPTab:CreateColorPicker({
     Name = "ESP Color",
     Color = Color3.fromRGB(255, 0, 0),
     Flag = "espColorPicker",
     Callback = function(Value)
-        for _, label in pairs(weaponLabels) do
-            if label.label then
-                label.label.TextColor3 = Value
-            end
-        end
+        _G.espSettings.textColor = Value
+        _G.espSettings.rainbow = false
     end,
 })
 
--- Rainbow Mode Toggle
-local RainbowEnabled = false
+-- Rainbow Mode
 local RainbowToggle = ESPTab:CreateToggle({
     Name = "Rainbow Mode",
     CurrentValue = false,
     Flag = "rainbowToggle",
     Callback = function(Value)
-        RainbowEnabled = Value
-        if RainbowEnabled then
-            spawn(function()
-                while RainbowEnabled do
-                    for _, label in pairs(weaponLabels) do
-                        if label.label then
-                            label.label.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-                        end
-                    end
-                    wait(0.1)
-                end
-            end)
-        end
+        _G.espSettings.rainbow = Value
     end,
 })
 
--- Weapon ESP Functions
-local function createWeaponLabel(player)
-    if player == game:GetService("Players").LocalPlayer then return end
-    
-    local labelData = weaponLabels[player]
-    if labelData and labelData.gui and labelData.gui.Parent then
-        return labelData.gui
-    end
-    
-    local billboardGui = Instance.new("BillboardGui")
-    billboardGui.Name = "WeaponLabel"
-    billboardGui.Size = UDim2.new(0, 200, 0, 50)
-    billboardGui.StudsOffset = Vector3.new(0, 3, 0)
-    billboardGui.AlwaysOnTop = true
-    billboardGui.MaxDistance = 100
-    
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 0, 0)
-    label.TextStrokeTransparency = 0
-    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 14
-    label.Parent = billboardGui
-    
-    weaponLabels[player] = {
-        gui = billboardGui,
-        label = label
-    }
-    
-    -- Update weapon display
-    spawn(function()
-        while WeaponESPEnabled and billboardGui.Parent do
-            if player.Character then
-                local weapon = ""
-                for _, item in pairs(player.Character:GetChildren()) do
-                    if item:GetAttribute("Tool") then
-                        weapon = item.Name
-                        break
-                    end
-                end
-                label.Text = weapon ~= "" and weapon or ""
-                billboardGui.Parent = player.Character:FindFirstChild("Head")
-            end
-            wait(0.1)
-        end
-    end)
-    
-    return billboardGui
-end
-
--- Player Events
-game:GetService("Players").PlayerAdded:Connect(function(player)
-    if WeaponESPEnabled then
-        createWeaponLabel(player)
-    end
-end)
-
-game:GetService("Players").PlayerRemoving:Connect(function(player)
-    if weaponLabels[player] then
-        if weaponLabels[player].gui then
-            weaponLabels[player].gui:Destroy()
-        end
-        weaponLabels[player] = nil
-    end
-end)
+-- Load WAP ESP
+loadstring(game:HttpGet("https://raw.githubusercontent.com/ADMINDOGG/Dog-hub/refs/heads/main/ESP%20WAP"))()
 
 -- Skeleton ESP
 local SkeletonToggle = ESPTab:CreateToggle({
