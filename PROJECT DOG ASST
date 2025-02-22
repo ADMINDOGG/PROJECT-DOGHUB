@@ -59,96 +59,32 @@ _G.radarEnabled = false
 _G.arrowsEnabled = false
 _G.skeletonEnabled = false
 
-
-local function DisableAllESP()
-    -- Disable Skeleton
-    if _G.skeletonEnabled then
+-- Function to cleanup specific ESP feature
+local function CleanupESP(espType)
+    if espType == "skeleton" then
         if _G.Skeletons then
             for _, skeleton in pairs(_G.Skeletons) do
                 pcall(function() skeleton:Remove() end)
             end
             _G.Skeletons = nil
         end
-        _G.skeletonEnabled = false
-    end
-    
-    -- Disable Arrows
-    if _G.arrowsEnabled then
+    elseif espType == "arrows" then
         if _G.ArrowsObjects then
             for _, arrow in pairs(_G.ArrowsObjects) do
                 pcall(function() arrow:Remove() end)
             end
             _G.ArrowsObjects = nil
         end
-        _G.arrowsEnabled = false
-    end
-    
-    -- Disable Radar
-    if _G.radarEnabled then
+    elseif espType == "radar" then
         if _G.RadarObjects then
             for _, obj in pairs(_G.RadarObjects) do
                 pcall(function() obj:Remove() end)
             end
             _G.RadarObjects = nil
         end
-        _G.radarEnabled = false
     end
-    
-    -- Disable WAP ESP
-    DisableWAPESP()  -- เพิ่มการปิดการทำงานของ WAP ESP
 end
 
-
-
--- WAP ESP
-local WAPToggle = ESPTab:CreateToggle({
-    Name = "WAP ESP",
-    CurrentValue = false,
-    Flag = "wapToggle",
-    Callback = function(Value)
-        if Value then
-            DisableAllESP()  -- ปิด ESP อื่น ๆ ก่อน
-            _G.wapEnabled = true
-            
-            -- ฟังก์ชันในการแสดงของที่ถืออยู่
-            local function showHeldItems(player)
-                -- ตรวจสอบว่าผู้เล่นมีของในมือหรือไม่
-                local character = player.Character
-                if character and character:FindFirstChild("Humanoid") then
-                    local backpack = player.Backpack
-                    local itemNames = {}
-                    
-                    for _, item in ipairs(backpack:GetChildren()) do
-                        if item:IsA("Tool") then
-                            table.insert(itemNames, item.Name)
-                        end
-                    end
-                    
-                    -- ทำการแสดงรายการของใน UI หรือ ESP
-                    -- ใช้ฟังก์ชันที่คุณต้องการที่นี่เพื่อแสดง itemNames
-                end
-            end
-
-            -- สร้าง WAP ESP สำหรับผู้เล่นที่มีอยู่แล้ว
-            for _, plr in next, Players:GetChildren() do
-                if plr ~= Player then
-                    showHeldItems(plr)  -- แสดงของที่ถืออยู่
-                end
-            end
-            
-            -- สร้าง WAP ESP สำหรับผู้เล่นใหม่
-            Players.PlayerAdded:Connect(function(plr)
-                if _G.wapEnabled and plr ~= Player then
-                    showHeldItems(plr)  -- แสดงของที่ถืออยู่
-                end
-            end)
-        else
-            _G.wapEnabled = false
-            -- หากต้องการลบข้อมูลหรือทำความสะอาดสามารถเพิ่มที่นี่
-        end
-    end,
-})
-......................................................................................................................................................................................................................................................................................................................................................................................................................................................
 -- Skeleton ESP
 local SkeletonToggle = ESPTab:CreateToggle({
     Name = "Skeleton ESP",
@@ -156,7 +92,9 @@ local SkeletonToggle = ESPTab:CreateToggle({
     Flag = "skeletonToggle",
     Callback = function(Value)
         if Value then
-            DisableAllESP()
+            if _G.skeletonEnabled then
+                CleanupESP("skeleton")
+            end
             _G.skeletonEnabled = true
             
             -- Load the skeleton library
@@ -195,7 +133,9 @@ local ArrowsToggle = ESPTab:CreateToggle({
     Flag = "arrowsToggle",
     Callback = function(Value)
         if Value then
-            DisableAllESP()
+            if _G.arrowsEnabled then
+                CleanupESP("arrows")
+            end
             _G.arrowsEnabled = true
             _G.ArrowsObjects = {}
             
@@ -325,7 +265,9 @@ local RadarToggle = ESPTab:CreateToggle({
     Flag = "radarToggle",
     Callback = function(Value)
         if Value then
-            DisableAllESP()
+            if _G.radarEnabled then
+                CleanupESP("radar")
+            end
             _G.radarEnabled = true
             
             -- Load LerpColorModule for health colors
@@ -724,7 +666,9 @@ local SettingsSection = SettingsTab:CreateSection("Script Settings")
 local DestroyUI = SettingsTab:CreateButton({
    Name = "Destroy UI",
    Callback = function()
-      DisableAllESP()
+      CleanupESP("skeleton")
+      CleanupESP("arrows")
+      CleanupESP("radar")
       Rayfield:Destroy()
    end,
 })
