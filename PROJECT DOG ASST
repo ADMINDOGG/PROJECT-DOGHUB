@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "DOG HUB | Universal",
+   Name = "🐕 DOG HUB | Universal",
    LoadingTitle = "DOG HUB",
    LoadingSubtitle = "by DogTeam",
    ConfigurationSaving = {
@@ -46,11 +46,91 @@ Rayfield:Notify({
 local ESPTab = Window:CreateTab("👁 ESP", nil)
 local ESPSection = ESPTab:CreateSection("ESP Features")
 
+-- ESP Functions
+local function DisableAllESP()
+    -- Disable Skeleton
+    if _G.Skeletons then
+        for _, skeleton in pairs(_G.Skeletons) do
+            skeleton:Remove()
+        end
+        _G.Skeletons = {}
+    end
+    
+    -- Set all toggles to false
+    if _G.SkeletonToggle then
+        _G.SkeletonToggle:Set(false)
+    end
+    if _G.ArrowsToggle then
+        _G.ArrowsToggle:Set(false)
+    end
+    if _G.RadarToggle then
+        _G.RadarToggle:Set(false)
+    end
+end
+
 -- Skeleton ESP Toggle
-local SkeletonESP = ESPTab:CreateToggle({
+_G.SkeletonToggle = ESPTab:CreateToggle({
    Name = "Skeleton ESP",
    CurrentValue = false,
    Flag = "skeletonToggle",
+   Callback = function(Value)
+      if Value then
+         DisableAllESP() -- Disable other ESP features
+         -- Load Skeleton Library
+         local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Blissful4992/ESPs/main/UniversalSkeleton.lua"))()
+         _G.Skeletons = {}
+
+         -- Add Skeletons for existing players
+         for _, Player in next, game.Players:GetChildren() do
+            if Player ~= game.Players.LocalPlayer then
+               table.insert(_G.Skeletons, Library:NewSkeleton(Player, true))
+            end
+         end
+
+         -- Add Skeletons for new players
+         game.Players.PlayerAdded:Connect(function(Player)
+            if Player ~= game.Players.LocalPlayer then
+               table.insert(_G.Skeletons, Library:NewSkeleton(Player, true))
+            end
+         end)
+         
+         -- Set this toggle back to true after DisableAllESP
+         _G.SkeletonToggle:Set(true)
+      end
+   end,
+})
+
+-- Arrows Toggle
+_G.ArrowsToggle = ESPTab:CreateToggle({
+   Name = "Arrows",
+   CurrentValue = false,
+   Flag = "arrowsToggle",
+   Callback = function(Value)
+      if Value then
+         DisableAllESP() -- Disable other ESP features
+         [Arrows Code...]
+         
+         -- Set this toggle back to true after DisableAllESP
+         _G.ArrowsToggle:Set(true)
+      end
+   end,
+})
+
+-- Radar Toggle
+_G.RadarToggle = ESPTab:CreateToggle({
+   Name = "Radar",
+   CurrentValue = false,
+   Flag = "radarToggle",
+   Callback = function(Value)
+      if Value then
+         DisableAllESP() -- Disable other ESP features
+         [Radar Code...]
+         
+         -- Set this toggle back to true after DisableAllESP
+         _G.RadarToggle:Set(true)
+      end
+   end,
+})
    Callback = function(Value)
       if Value then
          -- Load Skeleton Library
