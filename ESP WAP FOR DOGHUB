@@ -1,0 +1,492 @@
+--ESPWAP
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ตั้งค่าเริ่มต้น
+local settings = {
+    enabled = false,
+    maxDistance = 100,
+    toggleKey = Enum.KeyCode.V,
+    waitingForNewKey = false,
+    textSize = 14,
+    textColor = Color3.fromRGB(255, 0, 0),
+    offsetY = 3,
+    labelWidth = 200,
+    labelHeight = 50,
+    rainbow = false,
+    rainbowSpeed = 1
+}
+
+-- ตัวแปรควบคุม UI
+local uiVisible = true
+local weaponLabels = {}
+
+-- สร้าง GUI หลัก
+local gui = Instance.new("ScreenGui")
+gui.Name = "WeaponESP"
+gui.ResetOnSpawn = false
+gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- ฟังก์ชันทำให้ลาก UI ได้
+local function makeDraggable(gui)
+    local dragging = false
+    local dragStart
+    local startPos
+
+    local function onMouseDown(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = gui.Position
+            
+            local connection
+            connection = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    connection:Disconnect()
+                end
+            end)
+        end
+    end
+
+    local function onMouseMove(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+            local delta = input.Position - dragStart
+            gui.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end
+
+    gui.InputBegan:Connect(onMouseDown)
+    UserInputService.InputChanged:Connect(onMouseMove)
+end
+
+-- สร้าง Control Panel
+local controlPanel = Instance.new("Frame")
+controlPanel.Name = "ControlPanel"
+controlPanel.Size = UDim2.new(0, 250, 0, 500) -- เพิ่มความสูงเป็น 500
+controlPanel.Position = UDim2.new(1, -270, 0, 10)
+controlPanel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+controlPanel.BackgroundTransparency = 0.1
+controlPanel.Parent = gui
+
+-- สร้าง Drag Handle
+local dragHandle = Instance.new("Frame")
+dragHandle.Name = "DragHandle"
+dragHandle.Size = UDim2.new(1, 0, 0, 30)
+dragHandle.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+dragHandle.BackgroundTransparency = 0.5
+dragHandle.Parent = controlPanel
+
+-- ข้อความบนแถบลาก
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 1, 0)
+title.Text = "Weapon ESP Settings"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.Parent = dragHandle
+
+-- ทำให้ลาก UI ได้
+makeDraggable(controlPanel)
+
+-- ฟังก์ชันสร้าง Slider
+local function createSlider(name, yPos, initialValue, minValue, maxValue, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -20, 0, 50)
+    container.Position = UDim2.new(0, 10, 0, yPos)
+    container.BackgroundTransparency = 1
+    container.Parent = controlPanel
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.BackgroundTransparency = 1
+    label.Text = name .. ": " .. initialValue
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.Parent = container
+    
+    local slider = Instance.new("TextButton")
+    slider.Position = UDim2.new(0, 0, 0, 25)
+    slider.Size = UDim2.new(1, 0, 0, 20)
+    slider.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    slider.Text = ""
+    slider.Parent = container
+    
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new((initialValue - minValue)/(maxValue - minValue), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    fill.Parent = slider
+    
+    slider.MouseButton1Down:Connect(function()
+        local function update()
+            local mouse = UserInputService:GetMouseLocation()
+            local sliderPosition = slider.AbsolutePosition
+            local sliderSize = slider.AbsoluteSize
+            local relativeX = math.clamp((mouse.X - sliderPosition.X) / sliderSize.X, 0, 1)
+            local value = math.floor(minValue + (maxValue - minValue) * relativeX)
+            
+            fill.Size = UDim2.new(relativeX, 0, 1, 0)
+            label.Text = name .. ": " .. value
+            callback(value)
+        end
+        
+        local connection
+        connection = UserInputService.InputChanged:Connect(update)
+        
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if connection then connection:Disconnect() end
+            end
+        end)
+    end)
+    
+    return container
+end
+
+-- สร้าง Distance Slider
+createSlider("Distance", 120, settings.maxDistance, 0, 1000, function(value)
+    settings.maxDistance = value
+    for _, labelData in pairs(weaponLabels) do
+        if labelData and labelData.gui then
+            labelData.gui.MaxDistance = value
+        end
+    end
+end)
+
+createSlider("Label Width", 170, settings.labelWidth, 50, 400, function(value)
+    settings.labelWidth = value
+    for _, labelData in pairs(weaponLabels) do
+        if labelData and labelData.gui then
+            labelData.gui.Size = UDim2.new(0, value, 0, settings.labelHeight)
+        end
+    end
+end)
+
+createSlider("Label Height", 240, settings.labelHeight, 20, 200, function(value)
+    settings.labelHeight = value
+    for _, labelData in pairs(weaponLabels) do
+        if labelData and labelData.gui then
+            labelData.gui.Size = UDim2.new(0, settings.labelWidth, 0, value)
+        end
+    end
+end)
+
+createSlider("Text Size", 300, settings.textSize, 8, 48, function(value)
+    settings.textSize = value
+    for _, labelData in pairs(weaponLabels) do
+        if labelData and labelData.label then
+            labelData.label.TextSize = value
+        end
+    end
+end)
+
+createSlider("Y Offset", 360, settings.offsetY, -10, 20, function(value)
+    settings.offsetY = value
+    for _, labelData in pairs(weaponLabels) do
+        if labelData and labelData.gui then
+            labelData.gui.StudsOffset = Vector3.new(0, value, 0)
+        end
+    end
+end)
+-- ฟังก์ชันสร้าง Color Picker
+local function createColorPicker(yPos)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -20, 0, 80)
+    container.Position = UDim2.new(0, 10, 0, yPos)
+    container.BackgroundTransparency = 1
+    container.Parent = controlPanel
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.BackgroundTransparency = 1
+    label.Text = "ESP Color"
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.Parent = container
+    
+    local function createColorButton(color, position)
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(0.2, -5, 0, 25)
+        button.Position = position
+        button.BackgroundColor3 = color
+        button.Text = ""
+        button.Parent = container
+        
+        button.MouseButton1Click:Connect(function()
+            settings.textColor = color
+            settings.rainbow = false
+            for _, labelData in pairs(weaponLabels) do
+                if labelData and labelData.label then
+                    labelData.label.TextColor3 = color
+                end
+            end
+        end)
+    end
+    
+    createColorButton(Color3.fromRGB(255, 0, 0), UDim2.new(0, 0, 0, 30))
+    createColorButton(Color3.fromRGB(0, 255, 0), UDim2.new(0.2, 5, 0, 30))
+    createColorButton(Color3.fromRGB(0, 0, 255), UDim2.new(0.4, 10, 0, 30))
+    createColorButton(Color3.fromRGB(255, 255, 0), UDim2.new(0.6, 15, 0, 30))
+    createColorButton(Color3.fromRGB(255, 255, 255), UDim2.new(0.8, 20, 0, 30))
+    
+    local rainbowButton = Instance.new("TextButton")
+    rainbowButton.Size = UDim2.new(1, 0, 0, 25)
+    rainbowButton.Position = UDim2.new(0, 0, 0, 60)
+    rainbowButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    rainbowButton.Text = "Rainbow Mode: OFF"
+    rainbowButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    rainbowButton.Font = Enum.Font.GothamBold
+    rainbowButton.TextSize = 14
+    rainbowButton.Parent = container
+    
+    rainbowButton.MouseButton1Click:Connect(function()
+        settings.rainbow = not settings.rainbow
+        rainbowButton.Text = "Rainbow Mode: " .. (settings.rainbow and "ON" or "OFF")
+    end)
+end
+
+-- สร้างปุ่ม Toggle
+local toggleButton = Instance.new("TextButton")
+toggleButton.Position = UDim2.new(0, 10, 0, 40)
+toggleButton.Size = UDim2.new(1, -20, 0, 30)
+toggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+toggleButton.Text = "ESP: OFF"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.GothamBold
+toggleButton.TextSize = 14
+toggleButton.Parent = controlPanel
+
+-- สร้างปุ่มเปลี่ยนคีย์
+local changeKeyButton = Instance.new("TextButton")
+changeKeyButton.Position = UDim2.new(0, 10, 0, 80)
+changeKeyButton.Size = UDim2.new(1, -20, 0, 30)
+changeKeyButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+changeKeyButton.Text = "Toggle Key: " .. settings.toggleKey.Name
+changeKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+changeKeyButton.Font = Enum.Font.GothamBold
+changeKeyButton.TextSize = 14
+changeKeyButton.Parent = controlPanel
+
+-- สร้าง Color Picker
+createColorPicker(420)
+
+-- ฟังก์ชันสร้าง weapon label
+local function createWeaponLabel(player)
+    if player == LocalPlayer then return end
+    
+    local labelData = weaponLabels[player]
+    if labelData and labelData.gui and labelData.gui.Parent then
+        return labelData.gui
+    end
+    
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Name = "WeaponLabel"
+    billboardGui.Size = UDim2.new(0, settings.labelWidth, 0, settings.labelHeight)
+    billboardGui.StudsOffset = Vector3.new(0, settings.offsetY, 0)
+    billboardGui.AlwaysOnTop = true
+    billboardGui.MaxDistance = settings.maxDistance
+    billboardGui.ClipsDescendants = false
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = settings.textColor
+    label.TextStrokeTransparency = 0
+    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = settings.textSize
+    label.Parent = billboardGui
+    
+    weaponLabels[player] = {
+        gui = billboardGui,
+        label = label
+    }
+    
+    return billboardGui
+end
+
+-- ฟังก์ชันอัพเดท weapon label
+local function updatePlayerWeapon(player)
+    if not settings.enabled or player == LocalPlayer then return end
+    
+    local character = player.Character
+    if not character then return end
+    
+    local head = character:FindFirstChild("Head")
+    if not head then return end
+    
+    local labelData = weaponLabels[player]
+    if not labelData then
+        local newLabel = createWeaponLabel(player)
+        if newLabel then
+            newLabel.Parent = head
+            labelData = weaponLabels[player]
+        end
+    end
+    
+    if not labelData or not labelData.gui or not labelData.gui.Parent then return end
+    
+    local weaponFound = false
+    for _, item in pairs(character:GetChildren()) do
+        if item:GetAttribute("Tool") then
+            labelData.label.Text = item.Name
+            labelData.gui.Enabled = true
+            weaponFound = true
+            break
+        end
+    end
+    
+    if not weaponFound then
+        labelData.gui.Enabled = false
+    end
+end
+
+-- ฟังก์ชัน cleanup
+local function cleanupPlayer(player)
+    local labelData = weaponLabels[player]
+    if labelData and labelData.gui then
+        labelData.gui:Destroy()
+    end
+    weaponLabels[player] = nil
+end
+
+-- Player Events
+local function onPlayerAdded(player)
+    if player == LocalPlayer then return end
+    
+    local function onCharacterAdded(character)
+        if not character then return end
+        
+        local function onChildChanged()
+            pcall(function()
+                updatePlayerWeapon(player)
+            end)
+        end
+        
+        -- ตรวจสอบเมื่อ Humanoid ถูกทำลาย
+        local humanoid = character:WaitForChild("Humanoid", 5)
+        if humanoid then
+            humanoid.Died:Connect(function()
+                task.wait(0.1)
+                cleanupPlayer(player)
+                task.wait(0.5)
+                if player.Character then
+                    onCharacterAdded(player.Character)
+                end
+            end)
+        end
+        
+        character.ChildAdded:Connect(onChildChanged)
+        character.ChildRemoved:Connect(onChildChanged)
+        
+        -- ตรวจสอบเมื่อ character ถูกทำลาย
+        character.AncestryChanged:Connect(function(_, parent)
+            if not parent then
+                cleanupPlayer(player)
+            end
+        end)
+        
+        task.spawn(function()
+            updatePlayerWeapon(player)
+        end)
+        
+        -- อัพเดทต่อเนื่อง
+        task.spawn(function()
+            while character.Parent do
+                updatePlayerWeapon(player)
+                
+                -- อัพเดทสีรุ้ง
+                if settings.rainbow and weaponLabels[player] and weaponLabels[player].label then
+                    local hue = (tick() * settings.rainbowSpeed) % 1
+                    local color = Color3.fromHSV(hue, 1, 1)
+                    weaponLabels[player].label.TextColor3 = color
+                end
+                
+                task.wait(0.1)
+            end
+        end)
+    end
+    
+    player.CharacterAdded:Connect(onCharacterAdded)
+    if player.Character then
+        onCharacterAdded(player.Character)
+    end
+end
+
+local function onPlayerRemoving(player)
+    cleanupPlayer(player)
+end
+
+-- ฟังก์ชัน Toggle ESP
+local function toggleESP()
+    settings.enabled = not settings.enabled
+    toggleButton.Text = "ESP: " .. (settings.enabled and "ON" or "OFF")
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if weaponLabels[player] then
+            weaponLabels[player].gui.Enabled = settings.enabled
+        end
+        if settings.enabled then
+            updatePlayerWeapon(player)
+        end
+    end
+end
+
+-- Event Connections
+toggleButton.MouseButton1Click:Connect(toggleESP)
+
+changeKeyButton.MouseButton1Click:Connect(function()
+    settings.waitingForNewKey = true
+    changeKeyButton.Text = "Press any key..."
+end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.Insert then
+        uiVisible = not uiVisible
+        controlPanel.Visible = uiVisible
+    elseif settings.waitingForNewKey then
+        settings.toggleKey = input.KeyCode
+        settings.waitingForNewKey = false
+        changeKeyButton.Text = "Toggle Key: " .. input.KeyCode.Name
+    elseif input.KeyCode == settings.toggleKey then
+        toggleESP()
+    end
+end)
+
+-- เริ่มต้นระบบ
+Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+-- เช็คผู้เล่นที่มีอยู่แล้ว
+for _, player in pairs(Players:GetPlayers()) do
+    onPlayerAdded(player)
+end
+
+-- สร้างคำแนะนำการใช้งาน
+local helpText = Instance.new("TextLabel")
+helpText.Size = UDim2.new(1, -20, 0, 20)
+helpText.Position = UDim2.new(0, 10, 1, -25)
+helpText.BackgroundTransparency = 1
+helpText.Text = "Press INS to Show/Hide UI"
+helpText.TextColor3 = Color3.fromRGB(255, 255, 255)
+helpText.Font = Enum.Font.GothamBold
+helpText.TextSize = 12
+helpText.Parent = controlPanel
+
+-- Cleanup on script stop
+gui.Destroying:Connect(function()
+    for player, _ in pairs(weaponLabels) do
+        cleanupPlayer(player)
+    end
+end)
