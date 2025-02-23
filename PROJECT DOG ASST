@@ -1004,7 +1004,7 @@ local AutoLoot = MiscTab:CreateToggle({
 })
 -- Auto Minigame
 local AutoMinigame = MiscTab:CreateToggle({
-    Name = "Auto Minigame",
+    Name = "Auto lockpick",
     CurrentValue = false,
     Flag = "autoMinigameToggle",
     Callback = function(Value)
@@ -1021,9 +1021,9 @@ local AutoMinigame = MiscTab:CreateToggle({
     end,
 })
 
--- No Fall
+-- No Fall DMG
 local NoFall = MiscTab:CreateToggle({
-    Name = "No Fall",
+    Name = "No Fall DMG",
     CurrentValue = false,
     Flag = "noFallToggle",
     Callback = function(Value)
