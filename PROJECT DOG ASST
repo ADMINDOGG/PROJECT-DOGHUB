@@ -1,47 +1,49 @@
 local Players = game:service("Players")
 local Player = Players.LocalPlayer
 local Mouse = Player:GetMouse()
-local Camera = game:service("Workspace").CurrentCamera
-local RS = game:service("RunService")
-local UIS = game:service("UserInputService")
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
-local function getPastebinKey()
-    local response = game:HttpGet("https://pastebin.com/raw/RPdkB92x")
-    return response
-end
-
-local success, key = pcall(getPastebinKey)
-if not success then
-    warn("ไม่สามารถดึง Key จาก Pastebin ได้")
-    return
-end
 
 local Window = Rayfield:CreateWindow({
    Name = "🐕 DOG HUB | Universal",
    LoadingTitle = "DOG HUB",
    LoadingSubtitle = "by DogTeam",
    ConfigurationSaving = {
-      Enabled = true,
-      FolderName = "DogHubConfig",
-      FileName = "DogHub Config"
+      Enabled = false,
+      FolderName = nil,
+      FileName = "DogHub"
    },
    Discord = {
       Enabled = true,
-      Invite = "https://discord.gg/rQ5duuF8",
+      Invite = "rQ5duuF8",
       RememberJoins = true
    },
    KeySystem = true,
    KeySettings = {
-      Title = "DOG HUB | Key System",
-      Subtitle = "Key Verification",
+      Title = "Key | DOG HUB",
+      Subtitle = "Key System",
       Note = "Key In Discord Server",
-      FileName = "DogHubKey",
-      SaveKey = true,
-      GrabKeyFromSite = false,
-      Key = {key} -- ใช้ key ที่ดึงมาจาก Pastebin
+      FileName = "DogHubKey1",
+      SaveKey = true, -- เปิดการบันทึก key
+      GrabKeyFromSite = true, -- ดึง key จาก pastebin
+      Key = {"https://pastebin.com/raw/RPdkB92x"} -- ลิงก์ pastebin แบบ raw
    }
+})
+
+-- Welcome Notification
+Rayfield:Notify({
+  Title = "Welcome to DOG HUB!",
+  Content = "Script loaded successfully",
+  Duration = 6.5,
+  Image = nil,
+  Actions = {
+     Ignore = {
+        Name = "Okay!",
+        Callback = function()
+           print("Notification acknowledged")
+        end
+     },
+  },
 })
 
 -- Welcome Notification
@@ -1354,44 +1356,6 @@ MiscTab:CreateSlider({
 -- Settings Tab
 local SettingsTab = Window:CreateTab("⚙️ Settings", nil)
 local SettingsSection = SettingsTab:CreateSection("Script Settings")
-
--- FOV Toggle
-SettingsTab:CreateToggle({
-    Name = "Enable FOV Changer",
-    CurrentValue = false,
-    Flag = "FOVToggle",
-    Callback = function(Value)
-        _G.FOVEnabled = Value
-        if not Value then
-            game:GetService("Workspace").Camera.FieldOfView = 70 -- รีเซ็ตเมื่อปิด
-        end
-    end
-})
-
--- FOV Changer
-SettingsTab:CreateToggle({
-    Name = "FOV Changer",
-    CurrentValue = false,
-    Flag = "FOVToggle",
-    Callback = function(Value)
-        if Value then
-            -- เมื่อเปิด
-            local camera = workspace.CurrentCamera
-            local RunService = game:GetService("RunService")
-            
-            _G.FOVToggle = true
-            RunService.RenderStepped:Connect(function()
-                if _G.FOVToggle then
-                    camera.FieldOfView = 120 -- ตั้งค่า FOV เป็น 120
-                end
-            end)
-        else
-            -- เมื่อปิด
-            _G.FOVToggle = false
-            workspace.CurrentCamera.FieldOfView = 70 -- รีเซ็ตกลับเป็น 70
-        end
-    end
-})
 
 -- สวิตช์ Real Mouse (เปิดอัตโนมัติ)
 SettingsTab:CreateToggle({
