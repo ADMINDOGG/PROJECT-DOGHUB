@@ -7,6 +7,17 @@ local UIS = game:service("UserInputService")
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+local function getPastebinKey()
+    local response = game:HttpGet("https://pastebin.com/raw/RPdkB92x")
+    return response
+end
+
+local success, key = pcall(getPastebinKey)
+if not success then
+    warn("ไม่สามารถดึง Key จาก Pastebin ได้")
+    return
+end
+
 local Window = Rayfield:CreateWindow({
    Name = "🐕 DOG HUB | Universal",
    LoadingTitle = "DOG HUB",
@@ -18,7 +29,7 @@ local Window = Rayfield:CreateWindow({
    },
    Discord = {
       Enabled = true,
-      Invite = "YourDiscordInvite",
+      Invite = "https://discord.gg/rQ5duuF8",
       RememberJoins = true
    },
    KeySystem = true,
@@ -29,7 +40,7 @@ local Window = Rayfield:CreateWindow({
       FileName = "DogHubKey",
       SaveKey = true,
       GrabKeyFromSite = false,
-      Key = {"PREMIUM2024", "RELEASE"} 
+      Key = {key} -- ใช้ key ที่ดึงมาจาก Pastebin
    }
 })
 
@@ -48,6 +59,185 @@ Rayfield:Notify({
       },
    },
 })
+
+
+-- Combat Tab
+local CombatTab = Window:CreateTab("⚔️ Combat", nil)
+local AimbotSection = CombatTab:CreateSection("Aimbot Settings")
+
+-- Services
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RS = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+local Player = Players.LocalPlayer
+
+-- ตัวแปรสำหรับ Aimbot
+local aimbotEnabled = false
+local wallCheckEnabled = false
+local targetBody = false
+local FOVSize = 100
+local smoothness = 0.2
+local predictionMultiplier = 0.15
+
+-- สร้าง FOV Circle
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 2
+FOVCircle.NumSides = 64
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Transparency = 0.7
+FOVCircle.Filled = false
+FOVCircle.Visible = false
+
+-- ฟังก์ชันตรวจสอบว่ามองเห็นเป้าหมายได้หรือไม่
+local function canSeeTarget(targetPart)
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit * 500 -- กำหนดระยะทางสูงสุดตามที่ต้องการ
+    local ray = Ray.new(origin, direction)
+    local hit, position = workspace:FindPartOnRay(ray, Player.Character, false, true)
+    
+    return hit and hit:IsDescendantOf(targetPart.Parent)
+end
+
+-- ฟังก์ชันหาผู้เล่นที่ใกล้เม้าส์ที่สุด
+local function getClosestToCenter()
+    local closestPlayer = nil
+    local shortestDistance = FOVSize
+    local mousePos = UIS:GetMouseLocation()
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Player then
+            local character = player.Character
+            if character and character:FindFirstChild("Humanoid") and
+               character.Humanoid.Health > 0 then
+                
+                local targetPart = targetBody and 
+                    character:FindFirstChild("HumanoidRootPart") or
+                    character:FindFirstChild("Head")
+                
+                if targetPart then
+                    local screenPoint, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+                    
+                    if onScreen and screenPoint.Z > 0 then
+                        local screenPosition = Vector2.new(screenPoint.X, screenPoint.Y)
+                        local distanceFromMouse = (screenPosition - mousePos).Magnitude
+                        
+                        if distanceFromMouse <= FOVSize then
+                            if distanceFromMouse < shortestDistance then
+                                if not wallCheckEnabled or canSeeTarget(targetPart) then
+                                    closestPlayer = player
+                                    shortestDistance = distanceFromMouse
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+-- Toggle Aimbot Button
+local AimbotToggle = CombatTab:CreateToggle({
+    Name = "Enable Aimbot",
+    CurrentValue = false,
+    Flag = "AimbotEnabled",
+    Callback = function(Value)
+        aimbotEnabled = Value
+        FOVCircle.Visible = Value
+    end
+})
+
+-- Wall Check Toggle
+local WallCheckToggle = CombatTab:CreateToggle({
+    Name = "Wall Check",
+    CurrentValue = false,
+    Flag = "WallCheck",
+    Callback = function(Value)
+        wallCheckEnabled = Value
+    end
+})
+
+-- Target Part Toggle
+local TargetPartToggle = CombatTab:CreateToggle({
+    Name = "Target Body",
+    CurrentValue = false,
+    Flag = "TargetBody",
+    Callback = function(Value)
+        targetBody = Value
+    end
+})
+
+-- FOV Size Slider
+local FOVSlider = CombatTab:CreateSlider({
+    Name = "FOV Size",
+    Range = {10, 800},
+    Increment = 10,
+    Suffix = "px",
+    CurrentValue = 100,
+    Flag = "FOVSize",
+    Callback = function(Value)
+        FOVSize = Value
+        FOVCircle.Radius = Value
+    end
+})
+
+-- Smoothness Slider
+local SmoothnessSlider = CombatTab:CreateSlider({
+    Name = "Smoothness",
+    Range = {0.01, 1},
+    Increment = 0.01,
+    Suffix = "x",
+    CurrentValue = 0.2,
+    Flag = "Smoothness",
+    Callback = function(Value)
+        smoothness = Value
+    end
+})
+
+-- Prediction Slider
+local PredictionSlider = CombatTab:CreateSlider({
+    Name = "Prediction",
+    Range = {0, 2},
+    Increment = 0.01,
+    Suffix = "x",
+    CurrentValue = 0.15,
+    Flag = "Prediction",
+    Callback = function(Value)
+        predictionMultiplier = Value
+    end
+})
+
+-- Main Aimbot Loop
+RS.RenderStepped:Connect(function()
+    if FOVCircle then
+        FOVCircle.Position = UIS:GetMouseLocation()
+        FOVCircle.Radius = FOVSize
+    end
+    
+    if aimbotEnabled and UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+        local target = getClosestToCenter()
+        if target then
+            local targetPart = targetBody and 
+                target.Character:FindFirstChild("HumanoidRootPart") or
+                target.Character:FindFirstChild("Head")
+            
+            if targetPart then
+                local targetPos = targetPart.Position
+                local targetVel = targetPart.Velocity
+                
+                -- คำนวณการ Prediction
+                targetPos = targetPos + (targetVel * predictionMultiplier)
+                
+                -- ล็อกเป้าหมาย
+                local targetCFrame = CFrame.lookAt(Camera.CFrame.Position, targetPos)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, smoothness)
+            end
+        end
+    end
+end)
 
 -- ESP Tab
 local ESPTab = Window:CreateTab("👁 ESP", nil)
@@ -645,6 +835,7 @@ getgenv().ScriptLoaded = false
 getgenv().ESPEnabled = false
 getgenv().ESPLoop = false  -- ตัวแปรควบคุมการทำงานแบบวนซ้ำ
 
+
 -- Function to force remove ESP
 local function ForceRemoveESP()
     -- Remove main GUI
@@ -728,7 +919,7 @@ local LoadButton = MiscTab:CreateButton({
             getgenv().ESPEnabled = true
             
             -- Load ESP Script
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ADMINDOGG/Dog-hub/main/ESP%20WAP"))()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ADMINDOGG/PROJECT-DOGHUB/refs/heads/main/ESP%20WAP%20FOR%20DOGHUB"))()
         end)
         
         if not success then
@@ -809,7 +1000,6 @@ local AutoLoot = MiscTab:CreateToggle({
         end
     end,
 })
-print("Hello world")
 -- Auto Minigame
 local AutoMinigame = MiscTab:CreateToggle({
     Name = "Auto Minigame",
@@ -920,9 +1110,326 @@ local AntiRagdoll = MiscTab:CreateToggle({
     end,
 })
 
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local plr = Players.LocalPlayer
+
+-- Functions
+local function startSpectating(player)
+    local character = player.Character
+    if character and character:FindFirstChild("Humanoid") then
+        workspace.CurrentCamera.CameraSubject = character
+        return "Spectating " .. character.Name
+    end
+    return "Invalid player"
+end
+
+local function stopSpectating()
+    if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+        workspace.CurrentCamera.CameraSubject = plr.Character
+    end
+end
+
+-- Spectating Button in Rayfield UI
+local AdditionalFunctionsTab = Window:CreateTab("🛠 Additional Functions", nil)
+local AdditionalFunctionsSection = AdditionalFunctionsTab:CreateSection("Additional Features")
+
+-- State variable for toggling GUI
+local isSpectateGuiOpen = false
+
+-- Spectating Button
+local SpectateButton = AdditionalFunctionsTab:CreateButton({
+   Name = "Spectating",
+   Callback = function()
+      if isSpectateGuiOpen then
+          if spectateGui then
+              spectateGui:Destroy()
+              isSpectateGuiOpen = false
+          end
+      else
+          -- UI for selecting players to spectate
+          spectateGui = Instance.new("ScreenGui")
+          spectateGui.Name = "SpectateGui"
+          spectateGui.ResetOnSpawn = false
+          spectateGui.Parent = game.CoreGui
+
+          local mainFrame = Instance.new("Frame")
+          mainFrame.Size = UDim2.new(0, 200, 0, 300)
+          mainFrame.Position = UDim2.new(0.85, -100, 0.3, 0)
+          mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+          mainFrame.BorderSizePixel = 0
+          mainFrame.Active = true
+          mainFrame.Draggable = true
+          mainFrame.Parent = spectateGui
+
+          local titleLabel = Instance.new("TextLabel")
+          titleLabel.Parent = mainFrame
+          titleLabel.Size = UDim2.new(1, 0, 0.15, 0)
+          titleLabel.Text = "👁️ Spectate"
+          titleLabel.TextSize = 24
+          titleLabel.Font = Enum.Font.GothamBold
+          titleLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+          titleLabel.BackgroundTransparency = 1
+
+          local scrollFrame = Instance.new("ScrollingFrame")
+          scrollFrame.Size = UDim2.new(0.9, 0, 0.7, 0)
+          scrollFrame.Position = UDim2.new(0.05, 0, 0.2, 0)
+          scrollFrame.BackgroundTransparency = 1
+          scrollFrame.ScrollBarThickness = 4
+          scrollFrame.Parent = mainFrame
+
+          local stopButton = Instance.new("TextButton")
+          stopButton.Size = UDim2.new(0.8, 0, 0.1, 0)
+          stopButton.Position = UDim2.new(0.1, 0, 0.88, 0)
+          stopButton.Text = "Stop Spectating"
+          stopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+          stopButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+          stopButton.Font = Enum.Font.GothamBold
+          stopButton.TextSize = 14
+          stopButton.Parent = mainFrame
+          stopButton.Visible = false
+
+          stopButton.MouseButton1Click:Connect(function()
+              stopSpectating()
+              stopButton.Visible = false
+          end)
+
+          local function updatePlayerList()
+              for _, child in ipairs(scrollFrame:GetChildren()) do
+                  if child:IsA("TextButton") then
+                      child:Destroy()
+                  end
+              end
+              
+              for _, player in ipairs(Players:GetPlayers()) do
+                  if player ~= plr then
+                      local button = Instance.new("TextButton")
+                      button.Size = UDim2.new(0.9, 0, 0, 30)
+                      button.Position = UDim2.new(0.05, 0, 0, (#scrollFrame:GetChildren() * 35))
+                      button.Text = player.Name
+                      button.TextColor3 = Color3.fromRGB(255, 255, 255)
+                      button.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                      button.Font = Enum.Font.GothamSemibold
+                      button.TextSize = 14
+                      button.Parent = scrollFrame
+
+                      button.MouseButton1Click:Connect(function()
+                          startSpectating(player)
+                          stopButton.Visible = true
+                      end)
+                  end
+              end
+          end
+
+          Players.PlayerAdded:Connect(updatePlayerList)
+          Players.PlayerRemoving:Connect(updatePlayerList)
+          updatePlayerList()
+
+          -- Add keyboard shortcut (X key to stop spectating)
+          UserInputService.InputBegan:Connect(function(input, gameProcessed)
+              if not gameProcessed and input.KeyCode == Enum.KeyCode.X then
+                  stopSpectating()
+                  stopButton.Visible = false
+              end
+          end)
+
+          isSpectateGuiOpen = true
+      end
+   end,
+})
+-- Open Chat Button in Rayfield UI
+local TextChatService = game:GetService("TextChatService")
+
+local OpenChatButton = AdditionalFunctionsTab:CreateButton({
+   Name = "Open Chat",
+   Callback = function()
+      local chatWindowConfig = TextChatService:FindFirstChild("ChatWindowConfiguration")
+      local isChatEnabled = true
+
+      if chatWindowConfig then
+          isChatEnabled = not chatWindowConfig.Enabled
+          chatWindowConfig.Enabled = isChatEnabled
+
+          return isChatEnabled and "Chat logs ENABLED!" or "Chat logs DISABLED!"
+      end
+   end,
+})
+
+-- Services
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+getgenv().Running = true
+
+-- WalkSpeed
+local SpeedToggle = MiscTab:CreateToggle({
+    Name = "WalkSpeed",
+    CurrentValue = false,
+    Flag = "SpeedToggle",
+    Callback = function(Value)
+        _G.SpeedToggle = Value
+        if Value then
+            spawn(function()
+                while _G.SpeedToggle and getgenv().Running do
+                    if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = _G.SpeedValue or 100
+                    end
+                    RunService.RenderStepped:Wait()
+                end
+            end)
+        else
+            if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
+            end
+        end
+    end
+})
+
+MiscTab:CreateKeybind({
+    Name = "WalkSpeed Key",
+    CurrentKeybind = "Q",
+    HoldToInteract = false,
+    Flag = "SpeedKey",
+    Callback = function()
+        SpeedToggle:Set(not _G.SpeedToggle)
+    end
+})
+
+MiscTab:CreateSlider({
+    Name = "WalkSpeed Value",
+    Range = {16, 500},
+    Increment = 1,
+    CurrentValue = 16,
+    Flag = "SpeedValue",
+    Callback = function(Value)
+        _G.SpeedValue = Value
+    end
+})
+
+-- JumpPower
+local JumpToggle = MiscTab:CreateToggle({
+    Name = "JumpPower",
+    CurrentValue = false,
+    Flag = "JumpToggle",
+    Callback = function(Value)
+        _G.JumpToggle = Value
+        if Value then
+            spawn(function()
+                while _G.JumpToggle and getgenv().Running do
+                    if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                        game.Players.LocalPlayer.Character.Humanoid.JumpPower = _G.JumpValue or 100
+                    end
+                    RunService.RenderStepped:Wait()
+                end
+            end)
+        else
+            if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                game.Players.LocalPlayer.Character.Humanoid.JumpPower = 50
+            end
+        end
+    end
+})
+
+MiscTab:CreateKeybind({
+    Name = "JumpPower Key",
+    CurrentKeybind = "E",
+    HoldToInteract = false,
+    Flag = "JumpKey",
+    Callback = function()
+        JumpToggle:Set(not _G.JumpToggle)
+    end
+})
+
+MiscTab:CreateSlider({
+    Name = "JumpPower Value",
+    Range = {50, 500},
+    Increment = 1,
+    CurrentValue = 50,
+    Flag = "JumpValue",
+    Callback = function(Value)
+        _G.JumpValue = Value
+    end
+})
+
+
 -- Settings Tab
 local SettingsTab = Window:CreateTab("⚙️ Settings", nil)
 local SettingsSection = SettingsTab:CreateSection("Script Settings")
+
+-- FOV Toggle
+SettingsTab:CreateToggle({
+    Name = "Enable FOV Changer",
+    CurrentValue = false,
+    Flag = "FOVToggle",
+    Callback = function(Value)
+        _G.FOVEnabled = Value
+        if not Value then
+            game:GetService("Workspace").Camera.FieldOfView = 70 -- รีเซ็ตเมื่อปิด
+        end
+    end
+})
+
+-- FOV Changer
+SettingsTab:CreateToggle({
+    Name = "FOV Changer",
+    CurrentValue = false,
+    Flag = "FOVToggle",
+    Callback = function(Value)
+        if Value then
+            -- เมื่อเปิด
+            local camera = workspace.CurrentCamera
+            local RunService = game:GetService("RunService")
+            
+            _G.FOVToggle = true
+            RunService.RenderStepped:Connect(function()
+                if _G.FOVToggle then
+                    camera.FieldOfView = 120 -- ตั้งค่า FOV เป็น 120
+                end
+            end)
+        else
+            -- เมื่อปิด
+            _G.FOVToggle = false
+            workspace.CurrentCamera.FieldOfView = 70 -- รีเซ็ตกลับเป็น 70
+        end
+    end
+})
+
+-- สวิตช์ Real Mouse (เปิดอัตโนมัติ)
+SettingsTab:CreateToggle({
+    Name = "+ Real Mouse",
+    CurrentValue = true, -- เปลี่ยนเป็น true
+    Flag = "RealMouse", 
+    Callback = function(Value)
+        if Value then
+            local Mouse = game:GetService("Players").LocalPlayer:GetMouse()
+            game:GetService("UserInputService").MouseIconEnabled = false
+            
+            local RealMouse = Instance.new("ImageLabel")
+            RealMouse.Name = "RealMouse"
+            RealMouse.Size = UDim2.new(0, 64, 0, 64)
+            RealMouse.BackgroundTransparency = 1
+            RealMouse.Image = "rbxassetid://7402429095"
+            RealMouse.ZIndex = 10
+            RealMouse.Parent = game.CoreGui
+            
+            game:GetService("RunService").RenderStepped:Connect(function()
+                if RealMouse and RealMouse.Parent then
+                    RealMouse.Position = UDim2.new(0, Mouse.X - 32, 0, Mouse.Y - 32)
+                end
+            end)
+        else
+            if game.CoreGui:FindFirstChild("RealMouse") then
+                game.CoreGui.RealMouse:Destroy()
+            end
+            game:GetService("UserInputService").MouseIconEnabled = true
+        end
+    end    
+})
+-- เรียกใช้ฟังก์ชัน Callback ทันทีที่สคริปต์เริ่มทำงาน
+task.spawn(function()
+    if _G.RealMouse == nil then -- ตรวจสอบว่ายังไม่เคยตั้งค่า
+        _G.RealMouse = true -- ตั้งค่าเริ่มต้นเป็น true
+    end
+end)
 
 local DestroyUI = SettingsTab:CreateButton({
    Name = "Destroy UI",
@@ -938,4 +1445,4 @@ local DestroyUI = SettingsTab:CreateButton({
 local CreditsSection = SettingsTab:CreateSection("Credits")
 local CreditsLabel = SettingsTab:CreateLabel("Created by: DogTeam")
 local VersionLabel = SettingsTab:CreateLabel("Version: 1.3.1")
-local user = SettingsTab:CreateLabel("Version: 1.0.0")
+local user = SettingsTab:CreateLabel("user: Liusicong")
