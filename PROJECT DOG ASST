@@ -919,7 +919,7 @@ local LoadButton = MiscTab:CreateButton({
             getgenv().ESPEnabled = true
             
             -- Load ESP Script
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ADMINDOGG/Dog-hub/main/ESP%20WAP"))()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ADMINDOGG/PROJECT-DOGHUB/refs/heads/main/ESP%20WAP%20FOR%20DOGHUB"))()
         end)
         
         if not success then
@@ -1255,72 +1255,99 @@ local OpenChatButton = AdditionalFunctionsTab:CreateButton({
    end,
 })
 
+-- Services
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+getgenv().Running = true
+
 -- WalkSpeed
+local SpeedToggle = MiscTab:CreateToggle({
+    Name = "WalkSpeed",
+    CurrentValue = false,
+    Flag = "SpeedToggle",
+    Callback = function(Value)
+        _G.SpeedToggle = Value
+        if Value then
+            spawn(function()
+                while _G.SpeedToggle and getgenv().Running do
+                    if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = _G.SpeedValue or 100
+                    end
+                    RunService.RenderStepped:Wait()
+                end
+            end)
+        else
+            if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
+            end
+        end
+    end
+})
+
 MiscTab:CreateKeybind({
-   Name = "WalkSpeed Keybind",
-   CurrentKeybind = "Q",
-   HoldToInteract = false,
-   Flag = "SpeedKey",
-   Callback = function()
-       _G.SpeedToggle = not _G.SpeedToggle
-       if _G.SpeedToggle then
-           RunService.RenderStepped:Connect(function()
-               if _G.SpeedToggle and getgenv().Running then
-                   game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = _G.SpeedValue or 100
-               end
-           end)
-       else
-           game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16
-       end
-   end
+    Name = "WalkSpeed Key",
+    CurrentKeybind = "Q",
+    HoldToInteract = false,
+    Flag = "SpeedKey",
+    Callback = function()
+        SpeedToggle:Set(not _G.SpeedToggle)
+    end
 })
 
 MiscTab:CreateSlider({
-   Name = "WalkSpeed Value",
-   Range = {16, 500},
-   Increment = 1,
-   CurrentValue = 16,
-   Flag = "SpeedValue",
-   Callback = function(Value)
-       _G.SpeedValue = Value
-       if _G.SpeedToggle then
-           game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
-       end
-   end
+    Name = "WalkSpeed Value",
+    Range = {16, 500},
+    Increment = 1,
+    CurrentValue = 16,
+    Flag = "SpeedValue",
+    Callback = function(Value)
+        _G.SpeedValue = Value
+    end
 })
 
 -- JumpPower
+local JumpToggle = MiscTab:CreateToggle({
+    Name = "JumpPower",
+    CurrentValue = false,
+    Flag = "JumpToggle",
+    Callback = function(Value)
+        _G.JumpToggle = Value
+        if Value then
+            spawn(function()
+                while _G.JumpToggle and getgenv().Running do
+                    if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                        game.Players.LocalPlayer.Character.Humanoid.JumpPower = _G.JumpValue or 100
+                    end
+                    RunService.RenderStepped:Wait()
+                end
+            end)
+        else
+            if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                game.Players.LocalPlayer.Character.Humanoid.JumpPower = 50
+            end
+        end
+    end
+})
+
 MiscTab:CreateKeybind({
-   Name = "JumpPower Keybind",
-   CurrentKeybind = "E",
-   HoldToInteract = false,
-   Flag = "JumpKey",
-   Callback = function()
-       _G.JumpToggle = not _G.JumpToggle
-       if _G.JumpToggle then
-           RunService.RenderStepped:Connect(function()
-               if _G.JumpToggle and getgenv().Running then
-                   game.Players.LocalPlayer.Character.Humanoid.JumpPower = _G.JumpValue or 100
-               end
-           end)
-       else
-           game.Players.LocalPlayer.Character.Humanoid.JumpPower = 50
-       end
-   end
+    Name = "JumpPower Key",
+    CurrentKeybind = "E",
+    HoldToInteract = false,
+    Flag = "JumpKey",
+    Callback = function()
+        JumpToggle:Set(not _G.JumpToggle)
+    end
 })
 
 MiscTab:CreateSlider({
-   Name = "JumpPower Value",
-   Range = {50, 500},
-   Increment = 1,
-   CurrentValue = 50,
-   Flag = "JumpValue",
-   Callback = function(Value)
-       _G.JumpValue = Value
-       if _G.JumpToggle then
-           game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
-       end
-   end
+    Name = "JumpPower Value",
+    Range = {50, 500},
+    Increment = 1,
+    CurrentValue = 50,
+    Flag = "JumpValue",
+    Callback = function(Value)
+        _G.JumpValue = Value
+    end
 })
 
 
