@@ -1,0 +1,190 @@
+local RS = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local To2D = Camera.WorldToViewportPoint
+local LocalPlayer = game.Players.LocalPlayer
+
+local Library = {}
+Library.__index = Library
+
+function Library:NewLine(info)
+    local l = Drawing.new("Line")
+    l.Visible = info.Visible or true
+    l.Color = info.Color or Color3.fromRGB(0,255,0)
+    l.Transparency = info.Transparency or 1
+    l.Thickness = info.Thickness or 1
+    return l
+end
+
+local Skeleton = {
+    Removed = false,
+    Player = nil,
+    Visible = false,
+    Lines = {},
+    Color = Color3.fromRGB(0,255,0),
+    Alpha = 1,
+    Thickness = 1
+}
+Skeleton.__index = Skeleton
+
+function Skeleton:UpdateStructure()
+    if not self.Player.Character then return end
+    
+    self:RemoveLines()
+    
+    -- โครงสร้างการเชื่อมต่อสำหรับ R6
+    local connections = {
+        {"Head", "Torso"},
+        {"Torso", "Left Arm"},
+        {"Torso", "Right Arm"},
+        {"Torso", "Left Leg"},
+        {"Torso", "Right Leg"}
+    }
+    
+    for _, connection in pairs(connections) do
+        local part1 = self.Player.Character:FindFirstChild(connection[1])
+        local part2 = self.Player.Character:FindFirstChild(connection[2])
+        
+        if part1 and part2 then
+            table.insert(
+                self.Lines,
+                {
+                    Library:NewLine({
+                        Visible = self.Visible,
+                        Color = self.Color,
+                        Transparency = self.Alpha,
+                        Thickness = self.Thickness
+                    }),
+                    connection[1],
+                    connection[2]
+                }
+            )
+        end
+    end
+end
+
+function Skeleton:SetVisible(State)
+    for _, l in pairs(self.Lines) do
+        l[1].Visible = State
+    end
+end
+
+function Skeleton:SetColor(Color)
+    self.Color = Color
+    for _, l in pairs(self.Lines) do
+        l[1].Color = Color
+    end
+end
+
+function Skeleton:SetAlpha(Alpha)
+    self.Alpha = Alpha
+    for _, l in pairs(self.Lines) do
+        l[1].Transparency = Alpha
+    end
+end
+
+function Skeleton:SetThickness(Thickness)
+    self.Thickness = Thickness
+    for _, l in pairs(self.Lines) do
+        l[1].Thickness = Thickness
+    end
+end
+
+function Skeleton:Update()
+    if self.Removed then return end
+    
+    local Character = self.Player.Character
+    if not Character then
+        self:SetVisible(false)
+        if not self.Player.Parent then
+            self:Remove()
+        end
+        return
+    end
+    
+    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    if not Humanoid then
+        self:SetVisible(false)
+        return
+    end
+    
+    for _, l in pairs(self.Lines) do
+        local part1 = Character:FindFirstChild(l[2])
+        local part2 = Character:FindFirstChild(l[3])
+        
+        if not (part1 and part2) then
+            l[1].Visible = false
+            continue
+        end
+        
+        local p1, v1 = To2D(Camera, part1.Position)
+        local p2, v2 = To2D(Camera, part2.Position)
+        
+        if v1 and v2 then
+            l[1].From = Vector2.new(p1.X, p1.Y)
+            l[1].To = Vector2.new(p2.X, p2.Y)
+            l[1].Visible = self.Visible
+        else
+            l[1].Visible = false
+        end
+    end
+end
+
+function Skeleton:Toggle()
+    self.Visible = not self.Visible
+    
+    if self.Visible then
+        self:RemoveLines()
+        self:UpdateStructure()
+        
+        local c
+        c = RS.Heartbeat:Connect(function()
+            if not self.Visible then
+                self:SetVisible(false)
+                c:Disconnect()
+                return
+            end
+            self:Update()
+        end)
+    end
+end
+
+function Skeleton:RemoveLines()
+    for _, l in pairs(self.Lines) do
+        l[1]:Remove()
+    end
+    self.Lines = {}
+end
+
+function Skeleton:Remove()
+    self.Removed = true
+    self:RemoveLines()
+end
+
+function Library:NewSkeleton(Player, Visible, Color, Alpha, Thickness)
+    if not Player then
+        error("Missing Player argument (#1)")
+    end
+    
+    local s = setmetatable({}, Skeleton)
+    s.Player = Player
+    
+    if Color then
+        s:SetColor(Color)
+    end
+    
+    if Alpha then
+        s:SetAlpha(Alpha)
+    end
+    
+    if Thickness then
+        s:SetThickness(Thickness)
+    end
+    
+    if Visible then
+        s:Toggle()
+    end
+    
+    return s
+end
+
+return Library
