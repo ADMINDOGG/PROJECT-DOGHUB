@@ -1352,6 +1352,136 @@ MiscTab:CreateSlider({
     end
 })
 
+-- Config
+local FLIGHT_SPEED = 50
+local TOGGLE_KEY = Enum.KeyCode.L
+local ASCEND_KEY = Enum.KeyCode.Space
+local DESCEND_KEY = Enum.KeyCode.LeftShift
+
+-- Flight Toggle Button
+local FlightToggle = MiscTab:CreateToggle({
+    Name = "🕊️ Flight (Press L)",
+    CurrentValue = false,
+    Flag = "FlightToggle",
+    Callback = function(Value)
+        flying = Value
+        toggleFlight()
+    end
+})
+
+-- Flight Speed Slider
+local FlightSpeedSlider = MiscTab:CreateSlider({
+    Name = "Flight Speed",
+    Range = {10, 200}, -- กำหนดช่วงความเร็ว
+    Increment = 5, -- เพิ่มทีละ 5
+    CurrentValue = FLIGHT_SPEED, -- ค่าเริ่มต้น
+    Flag = "FlightSpeedValue",
+    Callback = function(Value)
+        FLIGHT_SPEED = Value -- อัปเดตค่าความเร็วจริง
+    end
+})
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Player setup
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- Variables
+local flying = false
+local camera = workspace.CurrentCamera
+local humanoid, rootPart
+
+local function getCharacter()
+    character = player.Character or player.CharacterAdded:Wait()
+    humanoid = character:WaitForChild("Humanoid")
+    rootPart = character:WaitForChild("HumanoidRootPart")
+end
+
+local function updateFlight()
+    if not flying or not rootPart then return end
+    
+    local moveDirection = Vector3.new(0, 0, 0)
+    local lookVector = camera.CFrame.LookVector
+    local rightVector = camera.CFrame.RightVector
+    
+    if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+        moveDirection = moveDirection + lookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+        moveDirection = moveDirection - lookVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+        moveDirection = moveDirection - rightVector
+    end
+    if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+        moveDirection = moveDirection + rightVector
+    end
+    if UserInputService:IsKeyDown(ASCEND_KEY) then
+        moveDirection = moveDirection + Vector3.new(0, 1, 0)
+    end
+    if UserInputService:IsKeyDown(DESCEND_KEY) then
+        moveDirection = moveDirection - Vector3.new(0, 1, 0)
+    end
+    
+    if moveDirection.Magnitude > 0 then
+        moveDirection = moveDirection.Unit * (FLIGHT_SPEED / 5) -- อัปเดตความเร็วแบบ Real-time
+    end
+    
+    if rootPart then
+        rootPart.CFrame = rootPart.CFrame + moveDirection
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+    end
+end
+
+local function toggleFlight()
+    if not humanoid or not rootPart then getCharacter() end
+    flying = not flying
+    
+    if flying then
+        humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+    else
+        humanoid:ChangeState(Enum.HumanoidStateType.Landing)
+        task.wait(0.1)
+        humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    end
+end
+
+-- Keybind to toggle flight
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == TOGGLE_KEY then
+        FlightToggle:Set(not flying)
+        toggleFlight()
+    end
+end)
+
+-- Main loop
+RunService.Heartbeat:Connect(function()
+    if flying and rootPart then
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+        updateFlight()
+    end
+end)
+
+-- Character handling
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    humanoid = character:WaitForChild("Humanoid")
+    rootPart = character:WaitForChild("HumanoidRootPart")
+    
+    if flying then
+        task.wait(0.1)
+        humanoid:ChangeState(Enum.HumanoidStateType.Swimming)
+        rootPart.Velocity = Vector3.new(0, 0, 0)
+    end
+end)
+
+getCharacter()
 
 -- Settings Tab
 local SettingsTab = Window:CreateTab("⚙️ Settings", nil)
