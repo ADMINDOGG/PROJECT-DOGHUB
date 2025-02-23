@@ -1004,7 +1004,7 @@ local AutoLoot = MiscTab:CreateToggle({
 })
 -- Auto Minigame
 local AutoMinigame = MiscTab:CreateToggle({
-    Name = "Auto lockpick",
+    Name = "Auto Minigame",
     CurrentValue = false,
     Flag = "autoMinigameToggle",
     Callback = function(Value)
@@ -1021,9 +1021,9 @@ local AutoMinigame = MiscTab:CreateToggle({
     end,
 })
 
--- No Fall DMG
+-- No Fall
 local NoFall = MiscTab:CreateToggle({
-    Name = "No Fall DMG",
+    Name = "No Fall",
     CurrentValue = false,
     Flag = "noFallToggle",
     Callback = function(Value)
@@ -1483,6 +1483,111 @@ end)
 
 getCharacter()
 
+
+
+
+
+
+-- สร้างปุ่มสำหรับลบศีรษะ
+MiscTab:CreateToggle({
+    Name = "Remove Head ERROR NOW!!!",
+    CurrentValue = false,
+    Flag = "RemoveHead",
+    Callback = function(Value)
+        local player = game:GetService("Players").LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        
+        if Value then
+            -- เปิดใช้งาน - ลบศีรษะ
+            local function removeHead()
+                local head = character:FindFirstChild("Head")
+                if head then
+                    -- ลบ Mesh
+                    local headMesh = head:FindFirstChild("Mesh")
+                    if headMesh then
+                        headMesh:Destroy()
+                    end
+                    
+                    -- ลบ face
+                    local face = head:FindFirstChild("face")
+                    if face then
+                        face:Destroy()
+                    end
+                    
+                    -- ทำให้โปร่งใส
+                    head.Transparency = 1
+                end
+            end
+            
+            -- ลบศีรษะทันที
+            removeHead()
+            
+            -- เชื่อมต่อกับ CharacterAdded event
+            player.CharacterAdded:Connect(function(newCharacter)
+                character = newCharacter
+                wait(0.5)
+                if Rayfield.Flags.RemoveHead.Value then -- เช็คว่า toggle ยังเปิดอยู่ไหม
+                    removeHead()
+                end
+            end)
+        else
+            -- ปิดใช้งาน - กลับค่าเดิม
+            local head = character:FindFirstChild("Head")
+            if head then
+                head.Transparency = 0
+                -- รีเซ็ตตัวละครด้วยวิธีที่ถูกต้อง
+                player.Character:BreakJoints()
+                -- หรือใช้วิธีนี้:
+                -- game:GetService("Players").LocalPlayer:LoadCharacter()
+            end
+        end
+    end,
+})
+
+-- สร้าง Tab สำหรับแสดงข้อมูลผู้เล่น
+local PlayerTab = Window:CreateTab("Player Profile", 4483362458)
+
+-- ดึงข้อมูลผู้เล่น
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- สร้างส่วนรูปโปรไฟล์และข้อมูล
+PlayerTab:CreateParagraph({Title = "Player Info", Content = 
+   "Username: " .. player.Name .. "\n" ..
+   "Display Name: " .. player.DisplayName .. "\n" .. 
+   "User ID: " .. player.UserId .. "\n" ..
+   "Account Age: " .. player.AccountAge .. " days" .. "\n" ..
+   "Membership: " .. tostring(player.MembershipType)
+})
+
+-- สร้างส่วนสถานะ
+local StatusSection = PlayerTab:CreateSection("Status")
+
+-- สร้าง Labels สำหรับสถานะ (สร้างครั้งเดียว)
+local healthLabel = PlayerTab:CreateLabel("Health: Waiting...")
+local walkSpeedLabel = PlayerTab:CreateLabel("Walk Speed: Waiting...")
+local jumpPowerLabel = PlayerTab:CreateLabel("Jump Power: Waiting...")
+
+-- อัพเดทสถานะ
+local function updateStatus()
+   local character = player.Character
+   if character then
+       local humanoid = character:FindFirstChild("Humanoid")
+       if humanoid then
+           healthLabel:Set("Health: " .. math.floor(humanoid.Health) .. "/" .. math.floor(humanoid.MaxHealth))
+           walkSpeedLabel:Set("Walk Speed: " .. humanoid.WalkSpeed)
+           jumpPowerLabel:Set("Jump Power: " .. humanoid.JumpPower)
+       end
+   end
+end
+
+-- เริ่มการอัพเดทสถานะ
+spawn(function()
+   while true do
+       updateStatus()
+       wait(5)
+   end
+end)
 -- Settings Tab
 local SettingsTab = Window:CreateTab("⚙️ Settings", nil)
 local SettingsSection = SettingsTab:CreateSection("Script Settings")
@@ -1539,4 +1644,3 @@ local DestroyUI = SettingsTab:CreateButton({
 local CreditsSection = SettingsTab:CreateSection("Credits")
 local CreditsLabel = SettingsTab:CreateLabel("Created by: DogTeam")
 local VersionLabel = SettingsTab:CreateLabel("Version: 1.3.1")
-local user = SettingsTab:CreateLabel("user: Liusicong")
