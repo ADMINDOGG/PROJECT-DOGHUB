@@ -212,6 +212,345 @@ local PredictionSlider = CombatTab:CreateSlider({
     end
 })
 
+-- ส่วนเพิ่มเติมสำหรับ Whitelist UI
+local whitelistedPlayers = {} -- เก็บรายชื่อผู้เล่นที่อยู่ใน whitelist
+local whitelistEnabled = true -- เปิดใช้งาน whitelist เริ่มต้น
+
+-- เพิ่มปุ่ม Whitelist ในแท็บ Combat
+local WhitelistButton = CombatTab:CreateButton({
+    Name = "Player Whitelist",
+    Callback = function()
+        -- เช็คว่า GUI มีอยู่แล้วหรือไม่
+        if game.CoreGui:FindFirstChild("WhitelistGUI") then
+            game.CoreGui.WhitelistGUI:Destroy()
+        end
+        
+        -- สร้าง GUI สำหรับ Whitelist
+        local WhitelistGUI = Instance.new("ScreenGui")
+        WhitelistGUI.Name = "WhitelistGUI"
+        WhitelistGUI.ResetOnSpawn = false
+        WhitelistGUI.Parent = game.CoreGui
+        
+        -- สร้างกรอบหลัก
+        local MainFrame = Instance.new("Frame")
+        MainFrame.Name = "MainFrame"
+        MainFrame.Size = UDim2.new(0, 250, 0, 350)
+        MainFrame.Position = UDim2.new(0.8, -125, 0.5, -175)
+        MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        MainFrame.BorderSizePixel = 0
+        MainFrame.Active = true
+        MainFrame.Draggable = true -- ทำให้ลากได้
+        MainFrame.Parent = WhitelistGUI
+        
+        -- เพิ่มส่วนโค้งที่มุม
+        local UICorner = Instance.new("UICorner")
+        UICorner.CornerRadius = UDim.new(0, 6)
+        UICorner.Parent = MainFrame
+        
+        -- สร้างส่วนหัว
+        local HeaderFrame = Instance.new("Frame")
+        HeaderFrame.Name = "Header"
+        HeaderFrame.Size = UDim2.new(1, 0, 0, 30)
+        HeaderFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        HeaderFrame.BorderSizePixel = 0
+        HeaderFrame.Parent = MainFrame
+        
+        -- ปรับมุมส่วนหัว
+        local HeaderCorner = Instance.new("UICorner")
+        HeaderCorner.CornerRadius = UDim.new(0, 6)
+        HeaderCorner.Parent = HeaderFrame
+        
+        -- แก้ไขปัญหาส่วนโค้งด้านล่างของส่วนหัว
+        local CornerFix = Instance.new("Frame")
+        CornerFix.Name = "CornerFix"
+        CornerFix.Size = UDim2.new(1, 0, 0.5, 0)
+        CornerFix.Position = UDim2.new(0, 0, 0.5, 0)
+        CornerFix.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        CornerFix.BorderSizePixel = 0
+        CornerFix.Parent = HeaderFrame
+        
+        -- สร้างชื่อหัวข้อ
+        local TitleLabel = Instance.new("TextLabel")
+        TitleLabel.Name = "Title"
+        TitleLabel.Size = UDim2.new(1, -30, 1, 0)
+        TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+        TitleLabel.BackgroundTransparency = 1
+        TitleLabel.Text = "Player Whitelist"
+        TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        TitleLabel.TextSize = 14
+        TitleLabel.Font = Enum.Font.GothamBold
+        TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+        TitleLabel.Parent = HeaderFrame
+        
+        -- สร้างปุ่มปิด
+        local CloseButton = Instance.new("TextButton")
+        CloseButton.Name = "CloseButton"
+        CloseButton.Size = UDim2.new(0, 20, 0, 20)
+        CloseButton.Position = UDim2.new(1, -25, 0, 5)
+        CloseButton.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+        CloseButton.Text = ""
+        CloseButton.Parent = HeaderFrame
+        
+        -- ปรับมุมปุ่มปิด
+        local CloseCorner = Instance.new("UICorner")
+        CloseCorner.CornerRadius = UDim.new(0, 10)
+        CloseCorner.Parent = CloseButton
+        
+        -- เพิ่ม toggle สำหรับเปิด/ปิด whitelist
+        local EnableFrame = Instance.new("Frame")
+        EnableFrame.Name = "EnableFrame"
+        EnableFrame.Size = UDim2.new(1, 0, 0, 40)
+        EnableFrame.Position = UDim2.new(0, 0, 0, 30)
+        EnableFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        EnableFrame.BorderSizePixel = 0
+        EnableFrame.Parent = MainFrame
+        
+        local EnableLabel = Instance.new("TextLabel")
+        EnableLabel.Name = "EnableLabel"
+        EnableLabel.Size = UDim2.new(0, 150, 1, 0)
+        EnableLabel.Position = UDim2.new(0, 10, 0, 0)
+        EnableLabel.BackgroundTransparency = 1
+        EnableLabel.Text = "Enable Whitelist"
+        EnableLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        EnableLabel.TextSize = 14
+        EnableLabel.Font = Enum.Font.Gotham
+        EnableLabel.TextXAlignment = Enum.TextXAlignment.Left
+        EnableLabel.Parent = EnableFrame
+        
+        -- สร้าง toggle switch
+        local ToggleFrame = Instance.new("Frame")
+        ToggleFrame.Name = "Toggle"
+        ToggleFrame.Size = UDim2.new(0, 40, 0, 20)
+        ToggleFrame.Position = UDim2.new(1, -50, 0.5, -10)
+        ToggleFrame.BackgroundColor3 = whitelistEnabled and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(100, 100, 100)
+        ToggleFrame.BorderSizePixel = 0
+        ToggleFrame.Parent = EnableFrame
+        
+        local ToggleCorner = Instance.new("UICorner")
+        ToggleCorner.CornerRadius = UDim.new(0, 10)
+        ToggleCorner.Parent = ToggleFrame
+        
+        local ToggleCircle = Instance.new("Frame")
+        ToggleCircle.Name = "Circle"
+        ToggleCircle.Size = UDim2.new(0, 16, 0, 16)
+        ToggleCircle.Position = whitelistEnabled and UDim2.new(0, 22, 0, 2) or UDim2.new(0, 2, 0, 2)
+        ToggleCircle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        ToggleCircle.BorderSizePixel = 0
+        ToggleCircle.Parent = ToggleFrame
+        
+        local ToggleCircleCorner = Instance.new("UICorner")
+        ToggleCircleCorner.CornerRadius = UDim.new(0, 10)
+        ToggleCircleCorner.Parent = ToggleCircle
+        
+        -- ทำให้ toggle กดได้
+        local ToggleButton = Instance.new("TextButton")
+        ToggleButton.Name = "ToggleButton"
+        ToggleButton.Size = UDim2.new(1, 0, 1, 0)
+        ToggleButton.BackgroundTransparency = 1
+        ToggleButton.Text = ""
+        ToggleButton.Parent = ToggleFrame
+        
+        -- สร้างส่วนรายชื่อผู้เล่น
+        local PlayerScroll = Instance.new("ScrollingFrame")
+        PlayerScroll.Name = "PlayerList"
+        PlayerScroll.Size = UDim2.new(1, 0, 1, -70)
+        PlayerScroll.Position = UDim2.new(0, 0, 0, 70)
+        PlayerScroll.BackgroundTransparency = 1
+        PlayerScroll.BorderSizePixel = 0
+        PlayerScroll.ScrollBarThickness = 4
+        PlayerScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
+        PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, 0) -- จะปรับตามจำนวนผู้เล่น
+        PlayerScroll.Parent = MainFrame
+        
+        -- UIListLayout สำหรับจัดรายการผู้เล่น
+        local ListLayout = Instance.new("UIListLayout")
+        ListLayout.SortOrder = Enum.SortOrder.Name
+        ListLayout.Padding = UDim.new(0, 2)
+        ListLayout.Parent = PlayerScroll
+        
+        -- ฟังก์ชันสำหรับสร้างปุ่มผู้เล่น
+        local function CreatePlayerButton(player)
+            local isWhitelisted = table.find(whitelistedPlayers, player.Name) ~= nil
+            
+            local PlayerButton = Instance.new("Frame")
+            PlayerButton.Name = player.Name
+            PlayerButton.Size = UDim2.new(1, -10, 0, 30)
+            PlayerButton.Position = UDim2.new(0, 5, 0, 0)
+            PlayerButton.BackgroundColor3 = isWhitelisted and Color3.fromRGB(50, 100, 50) or Color3.fromRGB(40, 40, 40)
+            PlayerButton.BorderSizePixel = 0
+            PlayerButton.Parent = PlayerScroll
+            
+            local PlayerCorner = Instance.new("UICorner")
+            PlayerCorner.CornerRadius = UDim.new(0, 4)
+            PlayerCorner.Parent = PlayerButton
+            
+            local PlayerName = Instance.new("TextLabel")
+            PlayerName.Name = "PlayerName"
+            PlayerName.Size = UDim2.new(1, -10, 1, 0)
+            PlayerName.Position = UDim2.new(0, 10, 0, 0)
+            PlayerName.BackgroundTransparency = 1
+            PlayerName.Text = player.Name
+            PlayerName.TextColor3 = Color3.fromRGB(255, 255, 255)
+            PlayerName.TextSize = 14
+            PlayerName.Font = Enum.Font.Gotham
+            PlayerName.TextXAlignment = Enum.TextXAlignment.Left
+            PlayerName.Parent = PlayerButton
+            
+            local StatusIndicator = Instance.new("Frame")
+            StatusIndicator.Name = "Status"
+            StatusIndicator.Size = UDim2.new(0, 10, 0, 10)
+            StatusIndicator.Position = UDim2.new(1, -20, 0.5, -5)
+            StatusIndicator.BackgroundColor3 = isWhitelisted and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+            StatusIndicator.BorderSizePixel = 0
+            StatusIndicator.Parent = PlayerButton
+            
+            local StatusCorner = Instance.new("UICorner")
+            StatusCorner.CornerRadius = UDim.new(0, 5)
+            StatusCorner.Parent = StatusIndicator
+            
+            local ClickButton = Instance.new("TextButton")
+            ClickButton.Name = "ClickButton"
+            ClickButton.Size = UDim2.new(1, 0, 1, 0)
+            ClickButton.BackgroundTransparency = 1
+            ClickButton.Text = ""
+            ClickButton.Parent = PlayerButton
+            
+            ClickButton.MouseButton1Click:Connect(function()
+                local index = table.find(whitelistedPlayers, player.Name)
+                
+                if index then
+                    -- ลบออกจาก whitelist
+                    table.remove(whitelistedPlayers, index)
+                    PlayerButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                    StatusIndicator.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                else
+                    -- เพิ่มเข้า whitelist
+                    table.insert(whitelistedPlayers, player.Name)
+                    PlayerButton.BackgroundColor3 = Color3.fromRGB(50, 100, 50)
+                    StatusIndicator.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                end
+            end)
+            
+            return PlayerButton
+        end
+        
+        -- ฟังก์ชันสำหรับอัพเดทรายการผู้เล่น
+        local function UpdatePlayerList()
+            -- ลบปุ่มเก่าออกก่อน
+            for _, button in ipairs(PlayerScroll:GetChildren()) do
+                if button:IsA("Frame") then
+                    button:Destroy()
+                end
+            end
+            
+            -- สร้างปุ่มใหม่สำหรับผู้เล่นทุกคน
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= Player then -- ไม่รวมตัวเอง
+                    CreatePlayerButton(player)
+                end
+            end
+            
+            -- ปรับขนาด canvas
+            PlayerScroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+        end
+        
+        -- อัพเดทรายการเมื่อมีผู้เล่นเข้า/ออก
+        local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+            if WhitelistGUI.Parent then -- ตรวจสอบว่า GUI ยังแสดงอยู่
+                task.wait(1) -- รอให้ข้อมูลผู้เล่นโหลด
+                UpdatePlayerList()
+            end
+        end)
+        
+        local playerRemovingConnection = Players.PlayerRemoving:Connect(function()
+            if WhitelistGUI.Parent then -- ตรวจสอบว่า GUI ยังแสดงอยู่
+                task.wait(1) -- รอให้รายการผู้เล่นอัพเดท
+                UpdatePlayerList()
+            end
+        end)
+        
+        -- อัพเดทรายการเมื่อเปิด GUI
+        UpdatePlayerList()
+        
+        -- จัดการเหตุการณ์ปุ่มกด
+        ToggleButton.MouseButton1Click:Connect(function()
+            whitelistEnabled = not whitelistEnabled
+            ToggleFrame.BackgroundColor3 = whitelistEnabled and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(100, 100, 100)
+            ToggleCircle:TweenPosition(
+                whitelistEnabled and UDim2.new(0, 22, 0, 2) or UDim2.new(0, 2, 0, 2),
+                Enum.EasingDirection.InOut,
+                Enum.EasingStyle.Quad,
+                0.2,
+                true
+            )
+        end)
+        
+        CloseButton.MouseButton1Click:Connect(function()
+            playerAddedConnection:Disconnect()
+            playerRemovingConnection:Disconnect()
+            WhitelistGUI:Destroy()
+        end)
+        
+        -- Cleanup เมื่อ GUI ถูกทำลาย
+        WhitelistGUI.Destroying:Connect(function()
+            playerAddedConnection:Disconnect()
+            playerRemovingConnection:Disconnect()
+        end)
+    end
+})
+
+-- ปรับแต่งฟังก์ชัน getClosestToCenter เพื่อตรวจสอบ whitelist
+local originalGetClosestToCenter = getClosestToCenter
+getClosestToCenter = function()
+    local closestPlayer = nil
+    local shortestDistance = FOVSize
+    local mousePos = UIS:GetMouseLocation()
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Player then
+            -- ตรวจสอบว่าผู้เล่นอยู่ใน whitelist หรือไม่
+            local isWhitelisted = false
+            if whitelistEnabled then
+                isWhitelisted = table.find(whitelistedPlayers, player.Name) ~= nil
+            end
+            
+            -- ถ้า whitelist เปิดอยู่และผู้เล่นอยู่ใน whitelist ให้ข้ามผู้เล่นนี้ไป
+            if whitelistEnabled and isWhitelisted then
+                continue
+            end
+            
+            -- ตรวจสอบผู้เล่นตามเงื่อนไขปกติ
+            local character = player.Character
+            if character and character:FindFirstChild("Humanoid") and
+               character.Humanoid.Health > 0 then
+                
+                local targetPart = targetBody and 
+                    character:FindFirstChild("HumanoidRootPart") or
+                    character:FindFirstChild("Head")
+                
+                if targetPart then
+                    local screenPoint, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+                    
+                    if onScreen and screenPoint.Z > 0 then
+                        local screenPosition = Vector2.new(screenPoint.X, screenPoint.Y)
+                        local distanceFromMouse = (screenPosition - mousePos).Magnitude
+                        
+                        if distanceFromMouse <= FOVSize then
+                            if distanceFromMouse < shortestDistance then
+                                if not wallCheckEnabled or canSeeTarget(targetPart) then
+                                    closestPlayer = player
+                                    shortestDistance = distanceFromMouse
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
 -- Main Aimbot Loop
 RS.RenderStepped:Connect(function()
     if FOVCircle then
