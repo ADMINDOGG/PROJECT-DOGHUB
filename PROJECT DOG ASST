@@ -2114,4 +2114,5 @@ local DestroyUI = SettingsTab:CreateButton({
 -- Credits Section
 local CreditsSection = SettingsTab:CreateSection("Credits")
 local CreditsLabel = SettingsTab:CreateLabel("Created by: DogTeam")
-local VersionLabel = SettingsTab:CreateLabel("Version: 1.3.1")
+local CreditsLabel = SettingsTab:CreateLabel("join discord: https://discord.gg/TBkcu6rccJ")
+local VersionLabel = SettingsTab:CreateLabel("Version: 1.3.3")
