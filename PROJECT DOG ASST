@@ -1924,9 +1924,141 @@ end
 spawn(function()
    while true do
        updateStatus()
-       wait(5)
+       wait(0.1)
    end
 end)
+
+-- สร้างปุ่ม Preview ในแท็บ Player Profile
+local PreviewButton = PlayerTab:CreateButton({
+    Name = "Character Preview",
+    Callback = function()
+        -- ตรวจสอบว่ามีหน้าต่าง Preview อยู่แล้วหรือไม่
+        local existingPreview = game.CoreGui:FindFirstChild("CharacterPreviewGUI")
+        
+        if existingPreview then
+            -- ถ้ามีอยู่แล้ว ให้ลบออก (กดปุ่มซ้ำเพื่อซ่อน)
+            existingPreview:Destroy()
+        else
+            -- สร้างหน้าต่าง Preview ใหม่
+            local PreviewGUI = Instance.new("ScreenGui")
+            PreviewGUI.Name = "CharacterPreviewGUI"
+            PreviewGUI.ResetOnSpawn = false
+            PreviewGUI.Parent = game.CoreGui
+            
+            -- สร้างกรอบหลัก
+            local MainFrame = Instance.new("Frame")
+            MainFrame.Name = "MainFrame"
+            MainFrame.Size = UDim2.new(0, 300, 0, 400)
+            MainFrame.Position = UDim2.new(0.5, -150, 0.5, -200)
+            MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+            MainFrame.BorderSizePixel = 0
+            MainFrame.Active = true
+            MainFrame.Draggable = true -- ทำให้ลากได้
+            MainFrame.Parent = PreviewGUI
+            
+            -- เพิ่มส่วนโค้งที่มุม
+            local UICorner = Instance.new("UICorner")
+            UICorner.CornerRadius = UDim.new(0, 6)
+            UICorner.Parent = MainFrame
+            
+            -- สร้างส่วนหัว
+            local HeaderFrame = Instance.new("Frame")
+            HeaderFrame.Name = "Header"
+            HeaderFrame.Size = UDim2.new(1, 0, 0, 30)
+            HeaderFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            HeaderFrame.BorderSizePixel = 0
+            HeaderFrame.Parent = MainFrame
+            
+            -- ปรับมุมส่วนหัว
+            local HeaderCorner = Instance.new("UICorner")
+            HeaderCorner.CornerRadius = UDim.new(0, 6)
+            HeaderCorner.Parent = HeaderFrame
+            
+            -- แก้ไขปัญหาส่วนโค้งด้านล่างของส่วนหัว
+            local CornerFix = Instance.new("Frame")
+            CornerFix.Name = "CornerFix"
+            CornerFix.Size = UDim2.new(1, 0, 0.5, 0)
+            CornerFix.Position = UDim2.new(0, 0, 0.5, 0)
+            CornerFix.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            CornerFix.BorderSizePixel = 0
+            CornerFix.Parent = HeaderFrame
+            
+            -- สร้างชื่อหัวข้อ
+            local TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Name = "Title"
+            TitleLabel.Size = UDim2.new(1, -30, 1, 0)
+            TitleLabel.Position = UDim2.new(0, 10, 0, 0)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.Text = "Character Preview"
+            TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            TitleLabel.TextSize = 14
+            TitleLabel.Font = Enum.Font.GothamBold
+            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+            TitleLabel.Parent = HeaderFrame
+            
+            -- สร้างปุ่มปิด
+            local CloseButton = Instance.new("TextButton")
+            CloseButton.Name = "CloseButton"
+            CloseButton.Size = UDim2.new(0, 20, 0, 20)
+            CloseButton.Position = UDim2.new(1, -25, 0, 5)
+            CloseButton.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+            CloseButton.Text = ""
+            CloseButton.Parent = HeaderFrame
+            
+            -- ปรับมุมปุ่มปิด
+            local CloseCorner = Instance.new("UICorner")
+            CloseCorner.CornerRadius = UDim.new(0, 10)
+            CloseCorner.Parent = CloseButton
+            
+            -- สร้างภาพตัวละคร (มุมมองหน้า)
+            local FrontViewLabel = Instance.new("TextLabel")
+            FrontViewLabel.Name = "FrontViewLabel"
+            FrontViewLabel.Size = UDim2.new(1, 0, 0, 20)
+            FrontViewLabel.Position = UDim2.new(0, 0, 0, 40)
+            FrontViewLabel.BackgroundTransparency = 1
+            FrontViewLabel.Text = "Front View"
+            FrontViewLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            FrontViewLabel.TextSize = 14
+            FrontViewLabel.Font = Enum.Font.GothamSemibold
+            FrontViewLabel.Parent = MainFrame
+            
+            local FrontView = Instance.new("ImageLabel")
+            FrontView.Name = "FrontView"
+            FrontView.Size = UDim2.new(0, 150, 0, 150)
+            FrontView.Position = UDim2.new(0.5, -75, 0, 70)
+            FrontView.BackgroundTransparency = 1
+            FrontView.Image = "https://www.roblox.com/avatar-thumbnail/image?userId="..player.UserId.."&width=420&height=420&format=png"
+            FrontView.Parent = MainFrame
+            
+            -- สร้างภาพตัวละคร (มุมมองด้านข้าง)
+            local SideViewLabel = Instance.new("TextLabel")
+            SideViewLabel.Name = "SideViewLabel"
+            SideViewLabel.Size = UDim2.new(1, 0, 0, 20)
+            SideViewLabel.Position = UDim2.new(0, 0, 0, 230)
+            SideViewLabel.BackgroundTransparency = 1
+            SideViewLabel.Text = "Side View"
+            SideViewLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            SideViewLabel.TextSize = 14
+            SideViewLabel.Font = Enum.Font.GothamSemibold
+            SideViewLabel.Parent = MainFrame
+            
+            local SideView = Instance.new("ImageLabel")
+            SideView.Name = "SideView"
+            SideView.Size = UDim2.new(0, 150, 0, 150)
+            SideView.Position = UDim2.new(0.5, -75, 0, 250)
+            SideView.BackgroundTransparency = 1
+            SideView.Image = "https://www.roblox.com/bust-thumbnail/image?userId="..player.UserId.."&width=420&height=420&format=png"
+            SideView.Parent = MainFrame
+            
+            -- ตั้งค่าปุ่มปิด
+            CloseButton.MouseButton1Click:Connect(function()
+                PreviewGUI:Destroy()
+            end)
+        end
+    end,
+})
+
+
 -- Settings Tab
 local SettingsTab = Window:CreateTab("⚙️ Settings", nil)
 local SettingsSection = SettingsTab:CreateSection("Script Settings")
