@@ -26,7 +26,7 @@ local Window = Rayfield:CreateWindow({
       FileName = "DogHubKey1",
       SaveKey = true, -- เปิดการบันทึก key
       GrabKeyFromSite = true, -- ดึง key จาก pastebin
-      Key = {"https://pastebin.com/raw/RPdkB92x"} -- ลิงก์ pastebin แบบ raw
+      Key = {"https://pastebin.com/raw/BpDdBZwr"} -- ลิงก์ pastebin แบบ raw
    }
 })
 
