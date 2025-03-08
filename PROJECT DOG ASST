@@ -679,18 +679,51 @@ local function createChams(character)
     end
 end
 
+local function removeChams(character)
+    -- Find and remove highlight
+    for _, highlight in pairs(espFolder:GetChildren()) do
+        if highlight:IsA("Highlight") and highlight.Adornee == character then
+            highlight:Destroy()
+        end
+    end
+    
+    -- Find and remove name tag
+    if character:FindFirstChild("Head") then
+        local head = character:FindFirstChild("Head")
+        local nameTag = head:FindFirstChild("ESP_Name")
+        if nameTag then
+            nameTag:Destroy()
+        end
+    end
+end
+
 local function updateESP()
     if espEnabled then
         for _, player in pairs(game:GetService("Players"):GetPlayers()) do
             if player ~= game:GetService("Players").LocalPlayer then
-                if player.Character and player.Character:FindFirstChild("Humanoid") then
-                    local hasESP = false
-                    if player.Character:FindFirstChild("Head") then
-                        hasESP = player.Character.Head:FindFirstChild("ESP_Name") ~= nil
-                    end
+                local character = player.Character
+                if character and character:FindFirstChild("Humanoid") then
+                    local humanoid = character:FindFirstChild("Humanoid")
                     
-                    if not hasESP then
-                        createChams(player.Character)
+                    -- Check if player is alive
+                    if humanoid.Health > 0 then
+                        local hasESP = false
+                        
+                        -- Check if character already has ESP
+                        for _, highlight in pairs(espFolder:GetChildren()) do
+                            if highlight:IsA("Highlight") and highlight.Adornee == character then
+                                hasESP = true
+                                break
+                            end
+                        end
+                        
+                        -- Create ESP if needed
+                        if not hasESP then
+                            createChams(character)
+                        end
+                    else
+                        -- Remove ESP from dead players
+                        removeChams(character)
                     end
                 end
             end
@@ -698,6 +731,15 @@ local function updateESP()
     end
 end
 
+-- Add a function to update Highlight colors
+local function updateHighlightColors()
+    for _, highlight in pairs(espFolder:GetChildren()) do
+        if highlight:IsA("Highlight") then
+            highlight.OutlineColor = highlightColor
+            highlight.FillColor = fillColor
+        end
+    end
+end
 
 local ESPToggle = ESPTab:CreateToggle({
     Name = "Player ESP",
@@ -706,13 +748,19 @@ local ESPToggle = ESPTab:CreateToggle({
     Callback = function(Value)
         espEnabled = Value
         if Value then
+            -- Initial update
             updateESP()
-            game:GetService("RunService").RenderStepped:Connect(function()
-                if espEnabled then
-                    updateESP()
-                end
-            end)
+            
+            -- Create a connection that will continuously check and update ESP
+            if not _G.ESPUpdateConnection then
+                _G.ESPUpdateConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                    if espEnabled then
+                        updateESP()
+                    end
+                end)
+            end
         else
+            -- Clear all ESP
             for _, highlight in pairs(espFolder:GetChildren()) do
                 highlight:Destroy()
             end
@@ -728,9 +776,120 @@ local ESPToggle = ESPTab:CreateToggle({
                     end
                 end
             end
+            
+            -- Disconnect the update loop if it exists
+            if _G.ESPUpdateConnection then
+                _G.ESPUpdateConnection:Disconnect()
+                _G.ESPUpdateConnection = nil
+            end
         end
     end,
 })
+
+-- Add color pickers for ESP customization
+local OutlineColorPicker = ESPTab:CreateColorPicker({
+    Name = "Outline Color",
+    Color = highlightColor,
+    Flag = "OutlineColorPicker",
+    Callback = function(Value)
+        highlightColor = Value
+        updateHighlightColors()
+    end,
+})
+
+local FillColorPicker = ESPTab:CreateColorPicker({
+    Name = "Fill Color",
+    Color = fillColor, 
+    Flag = "FillColorPicker",
+    Callback = function(Value)
+        fillColor = Value
+        updateHighlightColors()
+    end,
+})
+
+-- ESP Distance Slider
+local DistanceSlider = ESPTab:CreateSlider({
+    Name = "ESP Max Distance",
+    Range = {100, 5000},
+    Increment = 100,
+    Suffix = " studs",
+    CurrentValue = espDistance,
+    Flag = "ESPDistance", 
+    Callback = function(Value)
+        espDistance = Value
+        
+        -- Update all name tags with new distance
+        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+            if player ~= game:GetService("Players").LocalPlayer and player.Character then
+                local head = player.Character:FindFirstChild("Head")
+                if head then
+                    local nameTag = head:FindFirstChild("ESP_Name")
+                    if nameTag then
+                        nameTag.MaxDistance = Value
+                    end
+                end
+            end
+        end
+    end,
+})
+
+-- ESP Text Size Slider
+local TextSizeSlider = ESPTab:CreateSlider({
+    Name = "ESP Text Size",
+    Range = {8, 24},
+    Increment = 1,
+    Suffix = "px",
+    CurrentValue = espTextSize,
+    Flag = "ESPTextSize", 
+    Callback = function(Value)
+        espTextSize = Value
+        
+        -- Update all existing text labels
+        for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+            if player ~= game:GetService("Players").LocalPlayer and player.Character then
+                local head = player.Character:FindFirstChild("Head")
+                if head then
+                    local nameTag = head:FindFirstChild("ESP_Name")
+                    if nameTag then
+                        for _, label in pairs(nameTag:GetChildren()) do
+                            if label:IsA("TextLabel") then
+                                label.TextSize = Value
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end,
+})
+
+-- Fix for when players respawn
+game:GetService("Players").PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        if espEnabled then
+            -- Wait a short time for the character to load
+            task.wait(0.5)
+            -- Remove any existing ESP for this player
+            removeChams(character)
+            -- Create new ESP
+            createChams(character)
+        end
+    end)
+end)
+
+-- Set up for existing players
+for _, player in pairs(game:GetService("Players"):GetPlayers()) do
+    player.CharacterAdded:Connect(function(character)
+        if espEnabled then
+            -- Wait a short time for the character to load
+            task.wait(0.5)
+            -- Remove any existing ESP for this player
+            removeChams(character)
+            -- Create new ESP
+            createChams(character)
+        end
+    end)
+end
 
 
 -- Global variables for ESP states
