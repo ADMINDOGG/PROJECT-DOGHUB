@@ -1,109 +1,113 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local soundService = game:GetService("SoundService")
 
 local player = Players.LocalPlayer
-local executor = identifyexecutor() or "Unknown"
+local executor = identifyexecutor and identifyexecutor() or "Unknown"
 
--- 🔧 สร้าง ScreenGui
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = game.CoreGui
+-- สร้าง ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = game:GetService("CoreGui") -- ใช้ CoreGui เพื่อไม่ให้ UI หายเมื่อรีเซ็ต
 
--- 🎨 สร้าง Terminal Frame (ตัวหลัก)
-local TerminalFrame = Instance.new("Frame")
-TerminalFrame.Size = UDim2.new(0.32, 0, 0.18, 0) -- ลดขนาดให้กระชับขึ้น
-TerminalFrame.Position = UDim2.new(0.34, 0, 0.42, 0)
-TerminalFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20) -- สีเข้มขึ้น
-TerminalFrame.BorderSizePixel = 0
-TerminalFrame.ClipsDescendants = true
-TerminalFrame.Parent = ScreenGui
-TerminalFrame.BackgroundTransparency = 1 -- เริ่มแบบโปร่งใส
+-- สร้าง Frame หลัก
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 350, 0, 200)
+mainFrame.Position = UDim2.new(0.5, -175, 0.4, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+mainFrame.Parent = screenGui
 
--- ✨ เพิ่มขอบมน + เงาให้ UI ดูสมจริง
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(0.08, 0) -- ลดความโค้งลงเล็กน้อย
-UICorner.Parent = TerminalFrame
+-- UI Corner (โค้งมน)
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 15)
+uiCorner.Parent = mainFrame
 
-local UIStroke = Instance.new("UIStroke")
-UIStroke.Thickness = 1.5 -- ลดความหนาของขอบ
-UIStroke.Color = Color3.fromRGB(200, 200, 200) -- สีขาวอ่อน
-UIStroke.Parent = TerminalFrame
+-- UI Gradient
+local gradient = Instance.new("UIGradient")
+gradient.Rotation = 90
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 50, 50)), -- แดง
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 0, 0))  -- แดงเข้ม
+}
+gradient.Parent = mainFrame
 
--- 🟥 Header ของ Terminal
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0.22, 0) -- ลดความสูงของ Header
-Header.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-Header.Parent = TerminalFrame
+-- ข้อความ Loading...
+local loadingText = Instance.new("TextLabel")
+loadingText.Text = "Loading..."
+loadingText.Font = Enum.Font.GothamBold
+loadingText.TextSize = 24
+loadingText.TextColor3 = Color3.fromRGB(255, 255, 255)
+loadingText.BackgroundTransparency = 1
+loadingText.Size = UDim2.new(1, 0, 0, 50)
+loadingText.Position = UDim2.new(0, 0, 0.4, 0)
+loadingText.Parent = mainFrame
 
-local HeaderCorner = Instance.new("UICorner")
-HeaderCorner.CornerRadius = UDim.new(0.08, 0)
-HeaderCorner.Parent = Header
+-- สร้าง Loading Circle
+local loadingCircle = Instance.new("ImageLabel")
+loadingCircle.Size = UDim2.new(0, 50, 0, 50)
+loadingCircle.Position = UDim2.new(0.5, -25, 0.15, 0)
+loadingCircle.BackgroundTransparency = 1
+loadingCircle.Image = "rbxassetid://3926305904" -- Roblox Loading Icon
+loadingCircle.ImageRectOffset = Vector2.new(0, 0)
+loadingCircle.ImageRectSize = Vector2.new(36, 36)
+loadingCircle.Parent = mainFrame
 
--- 📝 Title ของ Terminal
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(0.5, 0, 1, 0)
-Title.Position = UDim2.new(0.05, 0, 0, 0)
-Title.Text = "Terminal Status"
-Title.TextSize = 16 -- ลดขนาดฟอนต์ลงเล็กน้อย
-Title.Font = Enum.Font.Code
-Title.TextColor3 = Color3.fromRGB(220, 220, 220)
-Title.BackgroundTransparency = 1
-Title.Parent = Header
+-- Tween การหมุนของ Loading
+local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1) -- Loop
+local tween = TweenService:Create(loadingCircle, tweenInfo, {Rotation = 360})
+tween:Play()
 
--- 🔴🟡🟢 ปุ่มควบคุม (Close, Minimize, Maximize)
-local function CreateControl(color, position)
-    local Control = Instance.new("Frame")
-    Control.Size = UDim2.new(0, 12, 0, 12) -- ลดขนาดปุ่มให้เล็กลง
-    Control.Position = position
-    Control.BackgroundColor3 = color
-    Control.BorderSizePixel = 0
-    Control.Parent = Header
+-- สร้างเสียงเพลง
+local sound = Instance.new("Sound")
+sound.SoundId = "rbxassetid://8494188412"
+sound.Parent = screenGui
+sound:Play()
 
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(1, 0)
-    Corner.Parent = Control
+-- รอ 3 วินาที
+wait(3)
+
+-- ตรวจสอบว่าใช้ Executor เป็น "Solara" หรือไม่
+if string.lower(executor) == "MacSploit" then
+    -- เปลี่ยน UI เป็นแจ้งเตือนว่าไม่รองรับ Solara
+    loadingText.Text = "ไม่ซัพพอร์ต Executor นี้"
+    loadingText.TextColor3 = Color3.fromRGB(255, 0, 0)
+    
+    -- เปลี่ยน Loading Circle เป็นกากบาท ❌
+    loadingCircle.Image = "rbxassetid://3926309567" -- Check Mark (เปลี่ยนเป็นรูปกากบาทได้ถ้าหา asset id)
+    loadingCircle.Rotation = 0
+    tween:Cancel()
+    
+    -- เตะผู้เล่นออกจากเกม
+    player:Kick("ไม่ซัพพอร์ต Executor นี้")
+else
+    -- เปลี่ยนเป็น Success Message
+    loadingText.Text = "Success!"
+    loadingText.TextColor3 = Color3.fromRGB(0, 255, 0)
+
+    -- เปลี่ยน Loading Circle เป็น Check Mark ✅
+    loadingCircle.Image = "rbxassetid://3926309567"
+    loadingCircle.Rotation = 0
+    tween:Cancel()
+
+    -- เพิ่มชื่อผู้ใช้ + Executor
+    local userInfo = Instance.new("TextLabel")
+    userInfo.Text = "User: " .. player.Name .. "\nExecutor: " .. executor
+    userInfo.Font = Enum.Font.Gotham
+    userInfo.TextSize = 18
+    userInfo.TextColor3 = Color3.fromRGB(255, 255, 255)
+    userInfo.BackgroundTransparency = 1
+    userInfo.Size = UDim2.new(1, 0, 0, 60)
+    userInfo.Position = UDim2.new(0, 0, 0.6, 0)
+    userInfo.Parent = mainFrame
 end
 
-CreateControl(Color3.fromRGB(255, 75, 75), UDim2.new(0.93, 0, 0.35, 0)) -- 🔴 Close
-CreateControl(Color3.fromRGB(255, 195, 0), UDim2.new(0.87, 0, 0.35, 0)) -- 🟡 Minimize
-CreateControl(Color3.fromRGB(75, 255, 75), UDim2.new(0.81, 0, 0.35, 0)) -- 🟢 Maximize
+-- หายไปหลังจาก 3 วินาที
+wait(3)
+mainFrame:TweenPosition(UDim2.new(0.5, -175, 1.2, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 1, true, function()
+    screenGui:Destroy()
+end)
 
--- 📜 สร้าง TextLabel สำหรับแสดงข้อความ
-local TextLabel = Instance.new("TextLabel")
-TextLabel.Size = UDim2.new(1, 0, 0.75, 0) -- ปรับให้พอดีกับตัวอักษร
-TextLabel.Position = UDim2.new(0, 0, 0.22, 0)
-TextLabel.Text = ""
-TextLabel.TextSize = 20 -- ลดลงให้พอดี
-TextLabel.Font = Enum.Font.Code
-TextLabel.TextColor3 = Color3.fromRGB(0, 255, 100) -- สีเขียว Neon
-TextLabel.BackgroundTransparency = 1
-TextLabel.Parent = TerminalFrame
-
--- 🔥 เอฟเฟกต์แสดง UI (เฟดอิน)
-local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local fadeIn = TweenService:Create(TerminalFrame, tweenInfo, {BackgroundTransparency = 0})
-fadeIn:Play()
-
--- ✍️ ฟังก์ชันพิมพ์ข้อความแบบทีละตัวอักษร
-local function TypeText(label, text, speed)
-    for i = 1, #text do
-        label.Text = string.sub(text, 1, i)
-        task.wait(speed)
-    end
-end
-
--- ✨ แสดง "Loading..." ก่อน
-TypeText(TextLabel, "Loading...", 0.04)
-
--- ⏳ รอ 2.5 วินาที แล้วเปลี่ยนข้อความเป็นชื่อผู้ใช้
-task.wait(2.5)
-TypeText(TextLabel, "สคริปต์นี้รันโดย: " .. player.Name .. "\nExecutor: " .. executor, 0.04)
-
--- ⏳ รออีก 2.5 วินาทีแล้วปิด UI แบบเฟดเอาท์
-task.wait(2.5)
-local fadeOut = TweenService:Create(TerminalFrame, tweenInfo, {BackgroundTransparency = 1})
-fadeOut:Play()
-task.wait(0.4)
-ScreenGui:Destroy()
 
 ------------------------------------------------------------------------------------------------------------------------------------
 local Players = game:service("Players")
